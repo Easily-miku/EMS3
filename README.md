@@ -28,7 +28,7 @@ EMS3（Easy Minecraft Server Management System 3）是一个用Python编写的�
 使用一键安装脚本（支持Ubuntu/Debian/CentOS）：
 
 ```bash
-wget -O install.sh https://raw.githubusercontent.com/yourusername/EMS3/main/install.sh
+wget -O install.sh https://raw.githubusercontent.com/Easily-miku/EMS3/main/install.sh
 chmod +x install.sh
 ./install.sh
 ```
@@ -43,7 +43,7 @@ chmod +x install.sh
 
 1. 克隆仓库：
 ```bash
-git clone https://github.com/yourusername/EMS3.git
+git clone https://github.com/Easily-miku/EMS3.git
 cd EMS3
 ```
 
