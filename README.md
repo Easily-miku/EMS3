@@ -163,12 +163,12 @@ python app.py
 
 ## 许可证
 
-本项目采用MIT许可证。详见 [LICENSE](LICENSE) 文件。
+本项目采用GNU3.0许可证。详见 [LICENSE](LICENSE) 文件。
 
 ## 联系方式
 
-- 项目主页：[GitHub](https://github.com/yourusername/EMS3)
-- 问题反馈：[Issues](https://github.com/yourusername/EMS3/issues)
+- 项目主页：[GitHub](https://github.com/Easily-miku/EMS3)
+- 问题反馈：[Issues](https://github.com/Easily-miku/EMS3/issues)
 
 ## 致谢
 
