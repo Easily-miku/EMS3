@@ -1,5 +1,0 @@
-flask
-psutil
-requests
-flask-login
-flask-session
