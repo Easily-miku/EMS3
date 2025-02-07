@@ -13,6 +13,11 @@ from queue import Queue
 import base64
 import hashlib
 import functools
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.date import DateTrigger
+import zipfile
 
 app = Flask(__name__)
 
@@ -22,6 +27,10 @@ config = None
 download_status = {}
 download_queue = Queue()
 command_history = {}
+scheduler = BackgroundScheduler()
+
+# 定时任务存储
+scheduled_tasks = {}
 
 # 添加日志翻译字典
 LOG_TRANSLATIONS = {
@@ -284,12 +293,6 @@ def login():
     
     return render_template('login.html')
 
-# 登出路由
-@app.route('/logout')
-def logout():
-    session.pop('logged_in', None)
-    return redirect(url_for('login'))
-
 # 主页路由
 @app.route('/')
 @login_required
@@ -299,7 +302,15 @@ def index():
 @app.route('/api/servers')
 @login_required
 def get_servers():
-    return jsonify({"servers": config["servers"]})
+    servers_data = {}
+    for server_id, server in config["servers"].items():
+        players = get_online_players(server_id)
+        servers_data[server_id] = {
+            **server,
+            "online_players": len(players),
+            "players": players
+        }
+    return jsonify({"servers": servers_data})
 
 @app.route('/api/servers', methods=['POST'])
 @login_required
@@ -1038,8 +1049,480 @@ def update_server_settings(server_id):
     save_config()
     return jsonify({"status": "success"})
 
+# 定时任务相关函数
+def execute_scheduled_command(server_id, command):
+    """执行预定的命令"""
+    if server_id in minecraft_processes:
+        process = minecraft_processes[server_id]
+        if process.poll() is None:
+            try:
+                process.stdin.write(command + '\n')
+                process.stdin.flush()
+                print(f"定时任务执行成功: 服务器 {server_id} - 命令 {command}")
+            except Exception as e:
+                print(f"定时任务执行失败: {str(e)}")
+
+def restart_server(server_id):
+    """重启服务器"""
+    try:
+        # 先停止服务器
+        if server_id in minecraft_processes:
+            process = minecraft_processes[server_id]
+            if process.poll() is None:
+                process.terminate()
+                time.sleep(5)
+                if process.poll() is None:
+                    process.kill()
+                del minecraft_processes[server_id]
+        
+        # 等待几秒后重启
+        time.sleep(5)
+        
+        # 重启服务器
+        server = config["servers"][server_id]
+        server_path = os.path.abspath(server['server_path'])
+        jar_path = os.path.abspath(os.path.join(server_path, server['server_jar']))
+        
+        if not os.path.exists(jar_path):
+            print(f"重启失败: 服务器核心文件不存在 {jar_path}")
+            return
+            
+        logs_dir = os.path.join(server_path, 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+        
+        java_args = server['java_args'].split()
+        cmd = [server['java_path']] + java_args + ['-jar', jar_path, 'nogui']
+        
+        log_file = os.path.join(logs_dir, 'latest.log')
+        with open(log_file, 'w', encoding='utf-8') as f:
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+            
+            minecraft_processes[server_id] = subprocess.Popen(
+                cmd,
+                cwd=server_path,
+                stdout=f,
+                stderr=f,
+                stdin=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                startupinfo=startupinfo
+            )
+        print(f"服务器 {server_id} 重启成功")
+    except Exception as e:
+        print(f"重启失败: {str(e)}")
+
+# 定时任务API
+@app.route('/api/tasks', methods=['GET'])
+@login_required
+def get_tasks():
+    """获取所有定时任务"""
+    tasks = []
+    for job in scheduler.get_jobs():
+        task_id = job.id
+        task = scheduled_tasks.get(task_id, {})
+        tasks.append({
+            'id': task_id,
+            'name': task.get('name', '未命名任务'),
+            'type': task.get('type', '未知类型'),
+            'server_id': task.get('server_id', ''),
+            'command': task.get('command', ''),
+            'schedule_type': task.get('schedule_type', ''),
+            'schedule_value': task.get('schedule_value', ''),
+            'next_run_time': job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else None
+        })
+    return jsonify({'tasks': tasks})
+
+@app.route('/api/tasks', methods=['POST'])
+@login_required
+def create_task():
+    """创建定时任务"""
+    data = request.json
+    task_type = data.get('type')  # 'command' 或 'restart'
+    server_id = data.get('server_id')
+    name = data.get('name', '未命名任务')
+    schedule_type = data.get('schedule_type')  # 'cron', 'interval', 或 'date'
+    schedule_value = data.get('schedule_value')
+    command = data.get('command') if task_type == 'command' else None
+    
+    if not all([task_type, server_id, schedule_type, schedule_value]):
+        return jsonify({
+            'status': 'error',
+            'message': '缺少必要参数'
+        })
+    
+    try:
+        # 创建触发器
+        if schedule_type == 'cron':
+            # schedule_value 应该是cron表达式，如 "0 0 * * *"
+            trigger = CronTrigger.from_crontab(schedule_value)
+        elif schedule_type == 'interval':
+            # schedule_value 应该是间隔秒数
+            trigger = IntervalTrigger(seconds=int(schedule_value))
+        elif schedule_type == 'date':
+            # schedule_value 应该是日期时间字符串
+            trigger = DateTrigger(run_date=datetime.fromisoformat(schedule_value))
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': '不支持的调度类型'
+            })
+        
+        # 创建任务
+        task_id = str(uuid.uuid4())
+        if task_type == 'command':
+            job = scheduler.add_job(
+                execute_scheduled_command,
+                trigger=trigger,
+                args=[server_id, command],
+                id=task_id
+            )
+        else:  # restart
+            job = scheduler.add_job(
+                restart_server,
+                trigger=trigger,
+                args=[server_id],
+                id=task_id
+            )
+        
+        # 保存任务信息
+        scheduled_tasks[task_id] = {
+            'name': name,
+            'type': task_type,
+            'server_id': server_id,
+            'command': command,
+            'schedule_type': schedule_type,
+            'schedule_value': schedule_value
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'task_id': task_id
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/api/tasks/<task_id>', methods=['DELETE'])
+@login_required
+def delete_task(task_id):
+    """删除定时任务"""
+    try:
+        scheduler.remove_job(task_id)
+        if task_id in scheduled_tasks:
+            del scheduled_tasks[task_id]
+        return jsonify({'status': 'success'})
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/api/tasks/<task_id>', methods=['PUT'])
+@login_required
+def update_task(task_id):
+    """更新定时任务"""
+    if task_id not in scheduled_tasks:
+        return jsonify({
+            'status': 'error',
+            'message': '任务不存在'
+        })
+    
+    data = request.json
+    name = data.get('name')
+    schedule_type = data.get('schedule_type')
+    schedule_value = data.get('schedule_value')
+    
+    try:
+        # 更新触发器
+        if schedule_type and schedule_value:
+            if schedule_type == 'cron':
+                trigger = CronTrigger.from_crontab(schedule_value)
+            elif schedule_type == 'interval':
+                trigger = IntervalTrigger(seconds=int(schedule_value))
+            elif schedule_type == 'date':
+                trigger = DateTrigger(run_date=datetime.fromisoformat(schedule_value))
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': '不支持的调度类型'
+                })
+            
+            # 重新调度任务
+            scheduler.reschedule_job(
+                task_id,
+                trigger=trigger
+            )
+            
+            # 更新任务信息
+            scheduled_tasks[task_id].update({
+                'schedule_type': schedule_type,
+                'schedule_value': schedule_value
+            })
+        
+        # 更新名称
+        if name:
+            scheduled_tasks[task_id]['name'] = name
+        
+        return jsonify({'status': 'success'})
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@app.route('/api/logout', methods=['POST'])
+@login_required
+def api_logout():
+    """退出登录"""
+    session.clear()
+    return jsonify({
+        'status': 'success',
+        'message': '已成功退出登录'
+    })
+
+@app.route('/api/system/stats')
+@login_required
+def get_system_stats():
+    """获取系统资源使用情况"""
+    try:
+        # CPU使用率
+        cpu_percent = psutil.cpu_percent(interval=1)
+        
+        # 内存使用率
+        memory = psutil.virtual_memory()
+        memory_percent = memory.percent
+        memory_used = memory.used / (1024 * 1024 * 1024)  # 转换为GB
+        memory_total = memory.total / (1024 * 1024 * 1024)  # 转换为GB
+        
+        return jsonify({
+            'status': 'success',
+            'cpu_percent': cpu_percent,
+            'memory_percent': memory_percent,
+            'memory_used': round(memory_used, 2),
+            'memory_total': round(memory_total, 2)
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+def get_online_players(server_id):
+    """获取服务器在线玩家"""
+    if server_id not in minecraft_processes:
+        return []
+    
+    process = minecraft_processes[server_id]
+    if process.poll() is not None:
+        return []
+    
+    try:
+        # 发送list命令
+        process.stdin.write('list\n')
+        process.stdin.flush()
+        
+        # 读取日志文件获取最新的玩家列表
+        server = config["servers"][server_id]
+        log_file = os.path.join(server['server_path'], 'logs', 'latest.log')
+        if not os.path.exists(log_file):
+            return []
+        
+        # 读取最后几行日志
+        with open(log_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()[-10:]  # 读取最后10行
+            
+        # 查找包含玩家列表的行
+        for line in reversed(lines):
+            if 'There are' in line and 'players online' in line:
+                # 解析玩家列表
+                if ':' in line:
+                    players_str = line.split(':')[-1].strip()
+                    if players_str:
+                        return [p.strip() for p in players_str.split(',')]
+                break
+        return []
+    except Exception as e:
+        print(f"获取在线玩家失败: {str(e)}")
+        return []
+
+@app.route('/api/servers/<server_id>/players')
+@login_required
+def get_server_players(server_id):
+    """获取服务器在线玩家API"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    players = get_online_players(server_id)
+    return jsonify({
+        "status": "success",
+        "players": players,
+        "count": len(players)
+    })
+
+def create_backup(server_id):
+    """创建服务器备份"""
+    if server_id not in config["servers"]:
+        return None, "服务器不存在"
+    
+    try:
+        server = config["servers"][server_id]
+        server_path = server['server_path']
+        backup_dir = os.path.join(server_path, 'backups')
+        os.makedirs(backup_dir, exist_ok=True)
+        
+        # 生成备份文件名
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_name = f"backup_{timestamp}.zip"
+        backup_path = os.path.join(backup_dir, backup_name)
+        
+        # 创建ZIP文件
+        with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # 遍历服务器目录
+            for root, dirs, files in os.walk(server_path):
+                # 排除backups目录和logs目录
+                if 'backups' in dirs:
+                    dirs.remove('backups')
+                if 'logs' in dirs:
+                    dirs.remove('logs')
+                
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    # 计算相对路径
+                    arc_path = os.path.relpath(file_path, server_path)
+                    zipf.write(file_path, arc_path)
+        
+        # 获取备份文件大小
+        backup_size = os.path.getsize(backup_path) / (1024 * 1024)  # 转换为MB
+        
+        return {
+            'name': backup_name,
+            'path': backup_path,
+            'size': round(backup_size, 2),
+            'time': timestamp
+        }, None
+    except Exception as e:
+        return None, str(e)
+
+@app.route('/api/servers/<server_id>/backup', methods=['POST'])
+@login_required
+def backup_server(server_id):
+    """创建服务器备份API"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    backup_info, error = create_backup(server_id)
+    if error:
+        return jsonify({
+            "status": "error",
+            "message": f"创建备份失败: {error}"
+        })
+    
+    return jsonify({
+        "status": "success",
+        "message": "备份创建成功",
+        "backup": backup_info
+    })
+
+@app.route('/api/servers/<server_id>/backups')
+@login_required
+def list_backups(server_id):
+    """获取服务器备份列表"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    try:
+        server = config["servers"][server_id]
+        backup_dir = os.path.join(server['server_path'], 'backups')
+        if not os.path.exists(backup_dir):
+            return jsonify({"backups": []})
+        
+        backups = []
+        for file in os.listdir(backup_dir):
+            if file.startswith('backup_') and file.endswith('.zip'):
+                file_path = os.path.join(backup_dir, file)
+                file_size = os.path.getsize(file_path) / (1024 * 1024)  # 转换为MB
+                file_time = file[7:-4]  # 从文件名提取时间戳
+                
+                backups.append({
+                    'name': file,
+                    'path': file_path,
+                    'size': round(file_size, 2),
+                    'time': file_time
+                })
+        
+        # 按时间倒序排序
+        backups.sort(key=lambda x: x['time'], reverse=True)
+        return jsonify({"backups": backups})
+    
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"获取备份列表失败: {str(e)}"
+        })
+
+@app.route('/api/servers/<server_id>/backups/<backup_name>')
+@login_required
+def download_backup(server_id, backup_name):
+    """下载备份文件"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    try:
+        server = config["servers"][server_id]
+        backup_dir = os.path.join(server['server_path'], 'backups')
+        backup_path = os.path.join(backup_dir, backup_name)
+        
+        if not os.path.exists(backup_path):
+            return jsonify({"status": "error", "message": "备份文件不存在"})
+        
+        return send_from_directory(
+            backup_dir,
+            backup_name,
+            as_attachment=True
+        )
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"下载备份失败: {str(e)}"
+        })
+
+@app.route('/api/servers/<server_id>/backups/<backup_name>', methods=['DELETE'])
+@login_required
+def delete_backup(server_id, backup_name):
+    """删除备份文件"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    try:
+        server = config["servers"][server_id]
+        backup_dir = os.path.join(server['server_path'], 'backups')
+        backup_path = os.path.join(backup_dir, backup_name)
+        
+        if not os.path.exists(backup_path):
+            return jsonify({"status": "error", "message": "备份文件不存在"})
+        
+        os.remove(backup_path)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"删除备份失败: {str(e)}"
+        })
+
 if __name__ == '__main__':
     config = load_config()
     app.secret_key = config['security']['secret_key']
     app.permanent_session_lifetime = timedelta(seconds=config['security']['login_timeout'])
+    
+    # 启动调度器
+    scheduler.start()
+    
     app.run(host='0.0.0.0', port=config["web_port"], debug=True) 
