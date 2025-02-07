@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS3 - Minecraft服务器管理面板</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* 暗黑主题样式 */
+        .dark {
+            background-color: #1a1a1a;
+            color: #e5e5e5;
+        }
+        .dark .bg-white {
+            background-color: #2d2d2d !important;
+            color: #e5e5e5;
+        }
+        .dark .bg-gray-100 {
+            background-color: #1a1a1a !important;
+        }
+        .dark .bg-gray-50 {
+            background-color: #2d2d2d !important;
+        }
+        .dark .text-gray-500 {
+            color: #a0a0a0 !important;
+        }
+        .dark .text-gray-600 {
+            color: #a0a0a0 !important;
+        }
+        .dark .text-gray-700 {
+            color: #e5e5e5 !important;
+        }
+        .dark .border-gray-200 {
+            border-color: #404040 !important;
+        }
+        .dark .shadow-lg {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+        }
+        
+        /* 主题切换动画 */
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .bg-white, .bg-gray-100, .bg-gray-50 {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* 日志查看器样式 */
+        .log-viewer {
+            background: #1E1E1E;
+            color: #e5e5e5;
+            font-family: monospace;
+            height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        .log-line {
+            padding: 0.2rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .log-info { color: #4CAF50; }
+        .log-warn { color: #FFC107; }
+        .log-error { color: #F44336; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="text-xl font-bold">EMS3 演示面板</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="https://github.com/yourusername/EMS3" target="_blank" class="text-gray-500 hover:text-gray-700">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主体内容 -->
+    <div class="flex h-screen pt-16">
+        <!-- 左侧边栏 -->
+        <div class="bg-white w-64 fixed h-full shadow">
+            <div class="overflow-y-auto h-full">
+                <div class="px-4 py-5">
+                    <h2 class="text-lg font-semibold mb-4">服务器列表</h2>
+                    <div class="space-y-2">
+                        <div class="p-3 rounded-lg bg-blue-50 cursor-pointer">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium">生存服务器</span>
+                                <span class="text-green-500 text-sm">运行中</span>
+                            </div>
+                        </div>
+                        <div class="p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div class="flex items-center justify-between">
+                                <span class="font-medium">创造服务器</span>
+                                <span class="text-red-500 text-sm">已停止</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="flex-1 ml-64 p-8">
+            <!-- 快速统计 -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+                            <i class="fas fa-server text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500">服务器总数</p>
+                            <p class="text-xl font-semibold">2</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-500">
+                            <i class="fas fa-play text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500">运行中</p>
+                            <p class="text-xl font-semibold">1</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-500">
+                            <i class="fas fa-users text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500">在线玩家</p>
+                            <p class="text-xl font-semibold">12</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-500">
+                            <i class="fas fa-memory text-2xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-gray-500">内存占用</p>
+                            <p class="text-xl font-semibold">2.1 GB</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 服务器详情 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-semibold">生存服务器</h2>
+                        <p class="text-gray-600 mt-1">Paper 1.20.1</p>
+                    </div>
+                    <div class="space-x-2">
+                        <button class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                            <i class="fas fa-stop mr-2"></i>停止
+                        </button>
+                        <button class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+                            <i class="fas fa-sync mr-2"></i>重启
+                        </button>
+                        <button class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            <i class="fas fa-terminal mr-2"></i>控制台
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 服务器状态 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 mb-2">CPU 使用率</div>
+                        <div class="text-2xl font-semibold">45%</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 mb-2">内存使用</div>
+                        <div class="text-2xl font-semibold">2.1 GB</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 mb-2">在线玩家</div>
+                        <div class="text-2xl font-semibold">12/20</div>
+                    </div>
+                </div>
+
+                <!-- 日志查看器 -->
+                <div class="log-viewer rounded-lg">
+                    <div class="log-line log-info">[INFO] 玩家 Steve 加入了游戏</div>
+                    <div class="log-line log-warn">[WARN] 区块加载延迟超过 2000ms</div>
+                    <div class="log-line">[INFO] 已保存世界数据</div>
+                    <div class="log-line log-error">[ERROR] 无法加载插件 WorldEdit</div>
+                    <div class="log-line">[INFO] 正在保存玩家数据...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
