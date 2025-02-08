@@ -1062,6 +1062,42 @@ def execute_scheduled_command(server_id, command):
             except Exception as e:
                 print(f"定时任务执行失败: {str(e)}")
 
+def execute_scheduled_backup(server_id, keep_backups=5):
+    """执行定时备份"""
+    try:
+        # 创建备份
+        backup_info, error = create_backup(server_id)
+        if error:
+            print(f"定时备份失败: {error}")
+            return
+            
+        # 如果设置了保留数量，清理旧备份
+        if keep_backups > 0:
+            server = config["servers"][server_id]
+            backup_dir = os.path.join(server['server_path'], 'backups')
+            if os.path.exists(backup_dir):
+                # 获取所有备份文件并按时间排序
+                backups = []
+                for file in os.listdir(backup_dir):
+                    if file.startswith('backup_') and file.endswith('.zip'):
+                        file_path = os.path.join(backup_dir, file)
+                        backups.append((file_path, os.path.getmtime(file_path)))
+                
+                # 按时间从新到旧排序
+                backups.sort(key=lambda x: x[1], reverse=True)
+                
+                # 删除多余的备份
+                for backup_path, _ in backups[keep_backups:]:
+                    try:
+                        os.remove(backup_path)
+                        print(f"删除旧备份: {backup_path}")
+                    except Exception as e:
+                        print(f"删除旧备份失败: {str(e)}")
+        
+        print(f"定时备份成功: {backup_info['name']}")
+    except Exception as e:
+        print(f"定时备份执行失败: {str(e)}")
+
 def restart_server(server_id):
     """重启服务器"""
     try:
@@ -1141,12 +1177,11 @@ def get_tasks():
 def create_task():
     """创建定时任务"""
     data = request.json
-    task_type = data.get('type')  # 'command' 或 'restart'
+    task_type = data.get('type')  # 'command', 'restart', 或 'backup'
     server_id = data.get('server_id')
     name = data.get('name', '未命名任务')
     schedule_type = data.get('schedule_type')  # 'cron', 'interval', 或 'date'
     schedule_value = data.get('schedule_value')
-    command = data.get('command') if task_type == 'command' else None
     
     if not all([task_type, server_id, schedule_type, schedule_value]):
         return jsonify({
@@ -1157,13 +1192,10 @@ def create_task():
     try:
         # 创建触发器
         if schedule_type == 'cron':
-            # schedule_value 应该是cron表达式，如 "0 0 * * *"
             trigger = CronTrigger.from_crontab(schedule_value)
         elif schedule_type == 'interval':
-            # schedule_value 应该是间隔秒数
             trigger = IntervalTrigger(seconds=int(schedule_value))
         elif schedule_type == 'date':
-            # schedule_value 应该是日期时间字符串
             trigger = DateTrigger(run_date=datetime.fromisoformat(schedule_value))
         else:
             return jsonify({
@@ -1174,10 +1206,24 @@ def create_task():
         # 创建任务
         task_id = str(uuid.uuid4())
         if task_type == 'command':
+            command = data.get('command')
+            if not command:
+                return jsonify({
+                    'status': 'error',
+                    'message': '命令不能为空'
+                })
             job = scheduler.add_job(
                 execute_scheduled_command,
                 trigger=trigger,
                 args=[server_id, command],
+                id=task_id
+            )
+        elif task_type == 'backup':
+            keep_backups = int(data.get('keep_backups', 5))
+            job = scheduler.add_job(
+                execute_scheduled_backup,
+                trigger=trigger,
+                args=[server_id, keep_backups],
                 id=task_id
             )
         else:  # restart
@@ -1193,7 +1239,8 @@ def create_task():
             'name': name,
             'type': task_type,
             'server_id': server_id,
-            'command': command,
+            'command': data.get('command'),
+            'keep_backups': data.get('keep_backups', 5),
             'schedule_type': schedule_type,
             'schedule_value': schedule_value
         }
@@ -1515,6 +1562,26 @@ def delete_backup(server_id, backup_name):
         return jsonify({
             "status": "error",
             "message": f"删除备份失败: {str(e)}"
+        })
+
+@app.route('/api/files/<server_id>/create_folder', methods=['POST'])
+@login_required
+def create_folder(server_id):
+    """创建文件夹"""
+    if server_id not in config["servers"]:
+        return jsonify({"status": "error", "message": "服务器不存在"})
+    
+    server = config["servers"][server_id]
+    path = request.json.get('path', '')
+    full_path = os.path.join(server['server_path'], path)
+    
+    try:
+        os.makedirs(full_path, exist_ok=True)
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"创建文件夹失败: {str(e)}"
         })
 
 if __name__ == '__main__':
