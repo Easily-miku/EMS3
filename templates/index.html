@@ -1,0 +1,2760 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS3 - Minecraft服务器管理面板</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/0.21.1/axios.min.js"></script>
+    <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 暗黑主题样式 */
+        .dark {
+            background-color: #1a1a1a;
+            color: #e5e5e5;
+        }
+        .dark .bg-white {
+            background-color: #2d2d2d !important;
+            color: #e5e5e5;
+        }
+        .dark .bg-gray-100 {
+            background-color: #1a1a1a !important;
+        }
+        .dark .bg-gray-50 {
+            background-color: #2d2d2d !important;
+        }
+        .dark .text-gray-500 {
+            color: #a0a0a0 !important;
+        }
+        .dark .text-gray-600 {
+            color: #a0a0a0 !important;
+        }
+        .dark .text-gray-700 {
+            color: #e5e5e5 !important;
+        }
+        .dark .border-gray-200 {
+            border-color: #404040 !important;
+        }
+        .dark .shadow-lg {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+        }
+        /* 修复暗黑模式下的输入框样式 */
+        .dark input[type="text"],
+        .dark input[type="number"],
+        .dark textarea,
+        .dark select {
+            background-color: #1a1a1a !important;
+            color: #e5e5e5 !important;
+            border-color: #404040 !important;
+        }
+        /* 修复暗黑模式下的创建服务器卡片 */
+        .dark .bg-blue-50 {
+            background-color: #1a2b4a !important;
+        }
+        .dark .bg-blue-50 .text-gray-600 {
+            color: #a0a0a0 !important;
+        }
+        /* 修改服务器列表选中状态 */
+        .dark .server-selected {
+            background-color: #2d4a7c !important;
+        }
+        .server-selected {
+            background-color: #e6f0ff;
+        }
+        /* 主题切换动画 */
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .bg-white, .bg-gray-100, .bg-gray-50 {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        /* 主题切换按钮样式 */
+        .theme-switch {
+            width: 60px;
+            height: 30px;
+            background-color: #4a5568;
+            border-radius: 15px;
+            position: relative;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .theme-switch.active {
+            background-color: #4299e1;
+        }
+        .theme-switch::after {
+            content: '';
+            position: absolute;
+            width: 26px;
+            height: 26px;
+            background-color: white;
+            border-radius: 13px;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .theme-switch.active::after {
+            transform: translateX(30px);
+        }
+
+        /* 通知组件样式 */
+        #notificationContainer {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .notification {
+            background-color: white;
+            border-left: 4px solid;
+            padding: 16px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            min-width: 300px;
+            transform: translateX(120%);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left-color: #10B981;
+        }
+
+        .notification.error {
+            border-left-color: #EF4444;
+        }
+
+        .notification.warning {
+            border-left-color: #F59E0B;
+        }
+
+        .notification.info {
+            border-left-color: #3B82F6;
+        }
+
+        .notification i {
+            margin-right: 12px;
+            font-size: 20px;
+        }
+
+        .notification.success i {
+            color: #10B981;
+        }
+
+        .notification.error i {
+            color: #EF4444;
+        }
+
+        .notification.warning i {
+            color: #F59E0B;
+        }
+
+        .notification.info i {
+            color: #3B82F6;
+        }
+
+        .dark .notification {
+            background-color: #2d2d2d;
+            color: #e5e5e5;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-lg fixed w-full top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex">
+                    <div class="flex-shrink-0 flex items-center">
+                        <button id="sidebarToggle" class="text-gray-500 hover:text-gray-700 lg:hidden">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="EMS3 Logo" class="h-8 mx-4">
+                        <span class="text-xl font-bold cursor-pointer" onclick="returnToHome()">EMS3 管理面板</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="showPanelSettings()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-cog text-xl"></i>
+                    </button>
+                    <a href="https://github.com/Easily-miku/EMS3" target="_blank" class="text-gray-500 hover:text-gray-700">
+                        <i class="fab fa-github text-xl"></i>
+                    </a>
+                    <button onclick="logout()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-sign-out-alt text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 侧边栏和主内容区 -->
+    <div class="flex h-screen pt-16">
+        <!-- 左侧边栏 -->
+        <div id="sidebar" class="bg-white w-64 fixed h-full shadow transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="overflow-y-auto h-full">
+                <div class="px-4 py-5">
+                    <h2 class="text-lg font-semibold mb-4">服务器列表</h2>
+                    <div id="serverList" class="space-y-2">
+                        <!-- 服务器列表将通过JavaScript动态生成 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="flex-1 lg:ml-64">
+            <div class="flex h-full">
+                <!-- 中间内容区 -->
+                <div class="flex-1 p-8">
+                    <!-- 欢迎页面 -->
+                    <div id="welcomePage">
+                        <!-- 公告区域 -->
+                        <div id="announcements" class="space-y-4 mb-8">
+                            <!-- 公告将通过JavaScript动态生成 -->
+                        </div>
+
+                        <!-- 快速统计 -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+                                        <i class="fas fa-server text-2xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-gray-500">服务器总数</p>
+                                        <p id="totalServers" class="text-xl font-semibold">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-green-100 text-green-500">
+                                        <i class="fas fa-play text-2xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-gray-500">运行中</p>
+                                        <p id="runningServers" class="text-xl font-semibold">0</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-yellow-100 text-yellow-500">
+                                        <i class="fas fa-memory text-2xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <p class="text-gray-500">总内存占用</p>
+                                        <p id="totalMemory" class="text-xl font-semibold">0 MB</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 服务器详情页面 -->
+                    <div id="serverDetails" class="hidden">
+                        <!-- 导航标签 -->
+                        <div class="mb-6 border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8">
+                                <button onclick="switchTab('overview')" class="tab-btn" data-tab="overview">
+                                    <i class="fas fa-chart-bar mr-2"></i>概览
+                                </button>
+                                <button onclick="switchTab('files')" class="tab-btn" data-tab="files">
+                                    <i class="fas fa-folder mr-2"></i>文件管理
+                                </button>
+                                <button onclick="switchTab('console')" class="tab-btn" data-tab="console">
+                                    <i class="fas fa-terminal mr-2"></i>控制台
+                                </button>
+                                <button onclick="switchTab('tasks')" class="tab-btn" data-tab="tasks">
+                                    <i class="fas fa-clock mr-2"></i>定时任务
+                                </button>
+                                <button onclick="switchTab('backups')" class="tab-btn" data-tab="backups">
+                                    <i class="fas fa-save mr-2"></i>备份管理
+                                </button>
+                                <button onclick="switchTab('settings')" class="tab-btn" data-tab="settings">
+                                    <i class="fas fa-cog mr-2"></i>设置
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- 概览页面 -->
+                        <div id="overview" class="tab-content">
+                            <!-- 服务器信息卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h2 id="serverName" class="text-2xl font-semibold"></h2>
+                                        <p id="serverInfo" class="text-gray-600 mt-1"></p>
+                                    </div>
+                                    <div class="space-x-2">
+                                        <button id="startBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                                            <i class="fas fa-play mr-2"></i>启动
+                                        </button>
+                                        <button id="stopBtn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+                                            <i class="fas fa-stop mr-2"></i>停止
+                                        </button>
+                                        <button id="downloadBtn" class="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                                            <i class="fas fa-download mr-2"></i>下载核心
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 状态卡片 -->
+                            <div class="grid grid-cols-3 gap-4 mb-4">
+                                <!-- 状态卡片 -->
+                                <div class="bg-white rounded-lg shadow p-4">
+                                    <h3 class="text-lg font-semibold mb-2">服务器状态</h3>
+                                    <div id="serverStatus" class="text-center">
+                                        <span class="text-gray-500">未选择服务器</span>
+                                    </div>
+                                </div>
+                                <!-- CPU卡片 -->
+                                <div class="bg-white rounded-lg shadow p-4">
+                                    <h3 class="text-lg font-semibold mb-2">CPU使用率</h3>
+                                    <div id="cpuStatus" class="text-center">
+                                        <span class="text-gray-500">0%</span>
+                                    </div>
+                                </div>
+                                <!-- 内存卡片 -->
+                                <div class="bg-white rounded-lg shadow p-4">
+                                    <h3 class="text-lg font-semibold mb-2">内存使用</h3>
+                                    <div id="memoryStatus" class="text-center">
+                                        <span class="text-gray-500">0 MB</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 统计图部分 -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <!-- 玩家统计图 -->
+                                <div class="bg-white rounded-lg shadow p-4 h-[400px] overflow-hidden">
+                                    <h3 class="text-lg font-semibold mb-2">在线玩家统计</h3>
+                                    <div class="h-[calc(100%-2rem)]">
+                                        <canvas id="playersChart"></canvas>
+                                    </div>
+                                </div>
+                                <!-- CPU和内存统计图 -->
+                                <div class="bg-white rounded-lg shadow p-4 h-[400px] overflow-hidden">
+                                    <h3 class="text-lg font-semibold mb-2">系统资源统计</h3>
+                                    <div class="h-[calc(100%-2rem)]">
+                                        <canvas id="resourcesChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 文件管理页面 -->
+                        <div id="files" class="tab-content hidden">
+                            <div class="bg-white rounded-lg shadow-lg">
+                                <!-- 文件管理工具栏 -->
+                                <div class="p-4 border-b border-gray-200">
+                                    <div class="flex justify-between items-center">
+                                        <div class="flex items-center space-x-4">
+                                            <button onclick="navigateUp()" class="text-gray-600 hover:text-gray-900">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                            <span id="currentPath" class="text-gray-600">/</span>
+                                            <button onclick="refreshFiles()" class="text-blue-500 hover:text-blue-700">
+                                                <i class="fas fa-sync-alt"></i>
+                                            </button>
+                                        </div>
+                                        <div class="space-x-2">
+                                            <button onclick="showCreateFileModal()" class="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600">
+                                                <i class="fas fa-file-plus mr-1"></i>新建文件
+                                            </button>
+                                            <button onclick="showCreateFolderModal()" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">
+                                                <i class="fas fa-folder-plus mr-1"></i>新建文件夹
+                                            </button>
+                                            <label class="bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600 cursor-pointer">
+                                                <i class="fas fa-upload mr-1"></i>上传文件
+                                                <input type="file" class="hidden" onchange="uploadFile(this)">
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 文件列表 -->
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    名称
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    大小
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    修改时间
+                                                </th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    操作
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="fileList" class="bg-white divide-y divide-gray-200">
+                                            <!-- 文件列表将通过JavaScript动态生成 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 控制台页面 -->
+                        <div id="console" class="tab-content hidden">
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <!-- 服务器日志 -->
+                                <h3 class="text-lg font-semibold mb-4">
+                                    <i class="fas fa-terminal mr-2"></i>服务器日志
+                                </h3>
+                                <div id="logs" class="bg-gray-900 text-gray-100 p-4 rounded h-96 overflow-y-auto font-mono text-sm mb-4">
+                                </div>
+
+                                <!-- 命令输入区域 -->
+                                <div class="mt-4">
+                                    <div class="flex space-x-2">
+                                        <input type="text" id="commandInput" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" placeholder="输入命令...">
+                                        <button onclick="executeCommand()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                            <i class="fas fa-paper-plane mr-2"></i>发送
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- 命令历史记录 -->
+                                    <div class="mt-4">
+                                        <h4 class="text-sm font-medium text-gray-700 mb-2">命令历史</h4>
+                                        <div id="commandHistory" class="bg-gray-50 rounded p-2 max-h-32 overflow-y-auto text-sm">
+                                            <!-- 命令历史将通过JavaScript动态生成 -->
+                                        </div>
+                                    </div>
+
+                                    <!-- 快捷指令面板 -->
+                                    <div class="mt-4">
+                                        <div class="flex justify-between items-center mb-2">
+                                            <h4 class="text-sm font-medium text-gray-700">快捷指令</h4>
+                                            <button onclick="showAddQuickCommandModal()" class="text-blue-500 hover:text-blue-700 text-sm">
+                                                <i class="fas fa-plus mr-1"></i>添加快捷指令
+                                            </button>
+                                        </div>
+                                        <div id="quickCommands" class="flex flex-wrap gap-2">
+                                            <!-- 快捷指令将通过JavaScript动态生成 -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 定时任务页面 -->
+                        <div id="tasks" class="tab-content hidden">
+                            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h2 class="text-xl font-semibold">定时任务管理</h2>
+                                    <button onclick="showCreateTaskModal()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                        <i class="fas fa-plus mr-2"></i>新建任务
+                                    </button>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full">
+                                        <thead>
+                                            <tr class="bg-gray-50">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">任务名称</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">类型</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">调度类型</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">调度值</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">下次执行时间</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="taskList" class="bg-white divide-y divide-gray-200">
+                                            <!-- 任务列表将通过JavaScript动态生成 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 添加备份管理页面 -->
+                        <div id="backups" class="tab-content hidden">
+                            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                                <div class="flex justify-between items-center mb-6">
+                                    <h2 class="text-xl font-semibold">备份管理</h2>
+                                    <button onclick="createBackup()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                        <i class="fas fa-plus mr-2"></i>创建备份
+                                    </button>
+                                </div>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full">
+                                        <thead>
+                                            <tr class="bg-gray-50">
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备份名称</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">大小</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="backupList" class="bg-white divide-y divide-gray-200">
+                                            <!-- 备份列表将通过JavaScript动态生成 -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 设置页面 -->
+                        <div id="settings" class="tab-content hidden">
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <h3 class="text-lg font-semibold mb-4">服务器设置</h3>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">服务器名称</label>
+                                        <input type="text" id="settingsServerName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">服务器端口</label>
+                                        <input type="number" id="settingsServerPort" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Java版本</label>
+                                        <select id="settingsJavaPath" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                            <!-- Java版本选项将通过JavaScript动态生成 -->
+                                        </select>
+                                        <p class="mt-1 text-sm text-gray-500">选择用于启动服务器的Java版本</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Java参数</label>
+                                        <input type="text" id="settingsJavaArgs" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button onclick="saveSettings()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                            保存设置
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 右侧工具栏 -->
+                <div class="hidden lg:block w-80 bg-white shadow-lg p-6 overflow-y-auto">
+                    <div class="space-y-6">
+                        <!-- 创建服务器卡片 -->
+                        <div class="bg-blue-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold mb-3">创建新服务器</h3>
+                            <p class="text-sm text-gray-600 mb-4">快速创建一个新的Minecraft服务器实例</p>
+                            <button onclick="showCreateServerModal()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                <i class="fas fa-plus mr-2"></i>创建服务器
+                            </button>
+                        </div>
+
+                        <!-- 系统信息卡片 -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold mb-3">系统信息</h3>
+                            <div class="space-y-2 text-sm">
+                                <p><span class="text-gray-500">操作系统：</span>Windows</p>
+                                <div class="border-t border-gray-200 pt-2">
+                                    <p class="font-medium text-gray-700 mb-1">已安装的Java</p>
+                                    <div id="sidebarJavaList" class="space-y-2">
+                                        <!-- Java列表将通过JavaScript动态生成 -->
+                                    </div>
+                                </div>
+                                <p><span class="text-gray-500">CPU使用率：</span><span id="systemCpu">0%</span></p>
+                                <p><span class="text-gray-500">内存使用率：</span><span id="systemMemory">0%</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建服务器模态框 -->
+    <div id="createServerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">创建新服务器</h3>
+                <button onclick="hideCreateServerModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">服务器名称</label>
+                    <input type="text" id="newServerName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">服务器端口</label>
+                    <input type="number" id="newServerPort" value="25565" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Java参数</label>
+                    <input type="text" id="newServerJavaArgs" value="-Xmx1024M -Xms1024M" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideCreateServerModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="createServer()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    创建
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下载核心模态框 -->
+    <div id="downloadCoreModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">下载服务端核心</h3>
+                <button onclick="hideDownloadCoreModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">核心类型</label>
+                    <select id="coreType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" onchange="loadMcVersions()">
+                        <option value="">请选择核心类型</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">游戏版本</label>
+                    <select id="mcVersion" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" onchange="loadCoreVersions()">
+                        <option value="">请选择游戏版本</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">核心版本</label>
+                    <select id="coreVersion" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">请选择核心版本</option>
+                    </select>
+                </div>
+                <div id="downloadProgress" class="hidden">
+                    <div class="relative pt-1">
+                        <div class="flex mb-2 items-center justify-between">
+                            <div>
+                                <span id="downloadStatus" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-blue-600 bg-blue-200">
+                                    准备下载
+                                </span>
+                            </div>
+                            <div class="text-right">
+                                <span id="downloadPercent" class="text-xs font-semibold inline-block text-blue-600">
+                                    0%
+                                </span>
+                            </div>
+                        </div>
+                        <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-blue-200">
+                            <div id="downloadBar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-blue-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideDownloadCoreModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button id="downloadStartBtn" onclick="downloadCore()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    下载
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 文件编辑器模态框 -->
+    <div id="fileEditorModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="absolute inset-4 bg-white rounded-lg flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-semibold" id="editorFileName">编辑文件</h3>
+                <button onclick="hideFileEditor()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-4">
+                <textarea id="fileContent" class="w-full h-full font-mono text-sm border rounded p-2"></textarea>
+            </div>
+            <div class="p-4 border-t flex justify-end space-x-4">
+                <button onclick="hideFileEditor()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="saveFile()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加快捷指令模态框 -->
+    <div id="addQuickCommandModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">添加快捷指令</h3>
+                <button onclick="hideAddQuickCommandModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">名称</label>
+                    <input type="text" id="quickCommandName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">命令</label>
+                    <input type="text" id="quickCommandCommand" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">描述</label>
+                    <input type="text" id="quickCommandDescription" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideAddQuickCommandModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="addQuickCommand()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    添加
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加面板设置模态框 -->
+    <div id="panelSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">面板设置</h3>
+                <button onclick="hidePanelSettings()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-6">
+                <!-- 主题设置 -->
+                <div>
+                    <h4 class="text-lg font-medium mb-3">主题设置</h4>
+                    <div class="flex items-center justify-between">
+                        <span class="text-gray-700">暗黑模式</span>
+                        <div id="themeSwitch" class="theme-switch" onclick="toggleDarkMode()"></div>
+                    </div>
+                </div>
+
+                <!-- Java路径管理 -->
+                <div>
+                    <h4 class="text-lg font-medium mb-3">Java路径管理</h4>
+                    <div class="space-y-4">
+                        <!-- Java选择选项 -->
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-4">
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="javaType" value="default" checked class="form-radio" onchange="toggleJavaInput()">
+                                    <span class="ml-2">使用系统默认的Java</span>
+                                </label>
+                                <label class="inline-flex items-center">
+                                    <input type="radio" name="javaType" value="custom" class="form-radio" onchange="toggleJavaInput()">
+                                    <span class="ml-2">使用自定义Java路径</span>
+                                </label>
+                            </div>
+                            
+                            <!-- 自定义Java路径输入 -->
+                            <div id="customJavaInput" class="hidden">
+                                <div class="flex space-x-2">
+                                    <input type="text" id="newJavaPath" placeholder="请输入完整的Java可执行文件路径" class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                    <label class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 cursor-pointer">
+                                        <i class="fas fa-folder-open mr-2"></i>浏览
+                                        <input type="file" class="hidden" id="javaPathBrowser" accept=".exe" onchange="handleJavaFileSelect(this)">
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button onclick="addSelectedJava()" class="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                <i class="fas fa-plus mr-2"></i>添加Java
+                            </button>
+                        </div>
+                        
+                        <!-- 已添加的Java路径列表 -->
+                        <div>
+                            <h5 class="text-sm font-medium text-gray-700 mb-2">已添加的Java</h5>
+                            <div id="javaPathsList" class="space-y-2">
+                                <!-- Java路径列表将通过JavaScript动态生成 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 创建任务模态框 -->
+    <div id="createTaskModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">创建定时任务</h3>
+                <button onclick="hideCreateTaskModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form onsubmit="createTask(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">任务名称</label>
+                    <input type="text" name="name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">任务类型</label>
+                    <select name="type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" onchange="toggleTaskFields(this.value)" required>
+                        <option value="command">执行指令</option>
+                        <option value="restart">重启服务器</option>
+                        <option value="backup">备份服务器</option>
+                    </select>
+                </div>
+                <div id="commandField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700">指令内容</label>
+                    <input type="text" name="command" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                </div>
+                <div id="backupField" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700">保留备份数量</label>
+                    <input type="number" name="keep_backups" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" min="1" value="5">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">调度类型</label>
+                    <select name="schedule_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                        <option value="cron">Cron表达式</option>
+                        <option value="interval">间隔时间(秒)</option>
+                        <option value="date">指定时间</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">调度值</label>
+                    <input type="text" name="schedule_value" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Cron表达式示例：0 0 * * * (每天0点)
+                    </p>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="hideCreateTaskModal()" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                        创建
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 添加新建文件模态框 -->
+    <div id="createFileModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">新建文件</h3>
+                <button onclick="hideCreateFileModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">文件名</label>
+                    <input type="text" id="newFileName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">文件内容</label>
+                    <textarea id="newFileContent" rows="10" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideCreateFileModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="createNewFile()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    创建
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加新建文件夹模态框 -->
+    <div id="createFolderModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">新建文件夹</h3>
+                <button onclick="hideCreateFolderModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">文件夹名</label>
+                    <input type="text" id="newFolderName" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideCreateFolderModal()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="createNewFolder()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    创建
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加通知容器 -->
+    <div id="notificationContainer"></div>
+
+    <script>
+        // 侧边栏切换
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        });
+
+        let currentServerId = null;
+        let updateStatusInterval = null;
+        let updateLogsInterval = null;
+        let downloadCheckInterval = null;
+
+        // 加载服务器列表
+        function loadServers() {
+            axios.get('/api/servers')
+                .then(response => {
+                    const servers = response.data.servers;
+                    const serverList = document.getElementById('serverList');
+                    serverList.innerHTML = '';
+                    
+                    Object.entries(servers).forEach(([id, server]) => {
+                        const div = document.createElement('div');
+                        div.className = `p-3 rounded hover:bg-gray-100 cursor-pointer ${currentServerId === id ? 'server-selected' : ''}`;
+                        div.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-medium">${server.name}</h3>
+                                    <p class="text-sm text-gray-600">端口: ${server.server_port}</p>
+                                    <p class="text-sm text-gray-600">在线: ${server.online_players} 人</p>
+                                    ${server.online_players > 0 ? 
+                                        `<p class="text-xs text-gray-500">${server.players.join(', ')}</p>` : 
+                                        ''}
+                                </div>
+                                <button onclick="event.stopPropagation(); deleteServer('${id}')" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                        div.addEventListener('click', () => selectServer(id));
+                        serverList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载服务器列表失败:', error);
+                });
+        }
+
+        // 选择服务器
+        function selectServer(serverId) {
+            currentServerId = serverId;
+            currentPath = '';
+            document.getElementById('welcomePage').classList.add('hidden');
+            document.getElementById('serverDetails').classList.remove('hidden');
+            
+            switchTab('overview');
+            
+            axios.get('/api/servers')
+                .then(response => {
+                    const server = response.data.servers[serverId];
+                    document.getElementById('serverName').textContent = server.name;
+                    document.getElementById('serverInfo').textContent = `端口: ${server.server_port} | 类型: ${server.type}`;
+                    
+                    // 更新设置表单
+                    document.getElementById('settingsServerName').value = server.name;
+                    document.getElementById('settingsServerPort').value = server.server_port;
+                    document.getElementById('settingsJavaArgs').value = server.java_args;
+                    document.getElementById('settingsJavaPath').value = server.java_path;
+                    
+                    // 更新Java版本选择
+                    updateJavaSelect();
+                });
+            
+            if (updateStatusInterval) clearInterval(updateStatusInterval);
+            if (updateLogsInterval) clearInterval(updateLogsInterval);
+            
+            updateStatus();
+            updateLogs();
+            // 更新状态和日志的刷新间隔为1秒
+            updateStatusInterval = setInterval(updateStatus, 1000);
+            updateLogsInterval = setInterval(updateLogs, 1000);
+            
+            if (window.innerWidth < 1024) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+            }
+            
+            loadServers();
+            updateCommandHistory();
+            loadQuickCommands();
+
+            // 初始化玩家统计图表
+            playerData.labels = [];
+            playerData.datasets[0].data = [];
+            initPlayersChart();
+
+            // 初始化资源统计图表
+            initResourcesChart();
+        }
+
+        // 删除服务器
+        function deleteServer(serverId) {
+            if (!confirm('确定要删除这个服务器吗？')) return;
+            
+            axios.delete(`/api/servers/${serverId}`)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        loadServers();
+                        if (currentServerId === serverId) {
+                            currentServerId = null;
+                            document.getElementById('serverDetails').classList.add('hidden');
+                        }
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('删除服务器失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        // 创建服务器相关函数
+        function showCreateServerModal() {
+            document.getElementById('createServerModal').classList.remove('hidden');
+        }
+
+        function hideCreateServerModal() {
+            document.getElementById('createServerModal').classList.add('hidden');
+        }
+
+        function createServer() {
+            const name = document.getElementById('newServerName').value;
+            const port = document.getElementById('newServerPort').value;
+            const javaArgs = document.getElementById('newServerJavaArgs').value;
+            
+            if (!name) {
+                alert('请输入服务器名称');
+                return;
+            }
+            
+            axios.post('/api/servers', {
+                name: name,
+                server_port: parseInt(port),
+                java_args: javaArgs
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        hideCreateServerModal();
+                        loadServers();
+                    }
+                })
+                .catch(error => {
+                    alert('创建服务器失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        // 下载核心相关函数
+        function showDownloadCoreModal() {
+            document.getElementById('downloadCoreModal').classList.remove('hidden');
+            loadCoreTypes();
+        }
+
+        function hideDownloadCoreModal() {
+            document.getElementById('downloadCoreModal').classList.add('hidden');
+        }
+
+        function loadCoreTypes() {
+            axios.get('/api/cores')
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const select = document.getElementById('coreType');
+                        select.innerHTML = '<option value="">请选择核心类型</option>';
+                        response.data.cores.forEach(core => {
+                            select.innerHTML += `<option value="${core.name}">${core.name}</option>`;
+                        });
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载核心类型失败:', error);
+                });
+        }
+
+        function loadMcVersions() {
+            const coreName = document.getElementById('coreType').value;
+            if (!coreName) return;
+            
+            axios.get(`/api/cores/${coreName}`)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const select = document.getElementById('mcVersion');
+                        select.innerHTML = '<option value="">请选择游戏版本</option>';
+                        response.data.versions.forEach(version => {
+                            select.innerHTML += `<option value="${version}">${version}</option>`;
+                        });
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载游戏版本失败:', error);
+                });
+        }
+
+        function loadCoreVersions() {
+            const coreName = document.getElementById('coreType').value;
+            const mcVersion = document.getElementById('mcVersion').value;
+            if (!coreName || !mcVersion) return;
+            
+            axios.get(`/api/cores/${coreName}/${mcVersion}`)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const select = document.getElementById('coreVersion');
+                        select.innerHTML = '<option value="">请选择核心版本</option>';
+                        response.data.builds.forEach(build => {
+                            select.innerHTML += `<option value="${build.core_version}">${build.core_version}</option>`;
+                        });
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('加载核心版本失败:', error);
+                });
+        }
+
+        // 更新服务器状态
+        function updateStatus() {
+            if (!currentServerId) {
+                // 如果没有选择服务器，清空所有状态显示
+                const elements = {
+                    'serverStatus': '未选择服务器',
+                    'cpuStatus': '-',
+                    'memoryStatus': '-',
+                    'players': '0/20'
+                };
+                
+                Object.entries(elements).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.innerHTML = `<span class="text-gray-500">${value}</span>`;
+                    }
+                });
+                
+                // 重置图表数据
+                if (window.playersChart) {
+                    updatePlayersChart(0);
+                }
+                if (window.resourceChart) {
+                    updateResourceChart(0, 0);
+                }
+                return;
+            }
+            
+            // 获取服务器状态
+            axios.get(`/api/status/${currentServerId}`)
+                .then(response => {
+                    const data = response.data;
+                    const elements = {
+                        serverStatus: document.getElementById('serverStatus'),
+                        cpuStatus: document.getElementById('cpuStatus'),
+                        memoryStatus: document.getElementById('memoryStatus')
+                    };
+                    
+                    if (data.status === 'running') {
+                        if (elements.serverStatus) {
+                            elements.serverStatus.innerHTML = `
+                                <span class="text-green-500">运行中</span>
+                                <p class="text-sm text-gray-500">PID: ${data.pid}</p>
+                            `;
+                        }
+                        if (elements.cpuStatus) {
+                            elements.cpuStatus.innerHTML = `
+                                <span class="text-blue-500">${data.cpu_percent.toFixed(1)}%</span>
+                            `;
+                        }
+                        if (elements.memoryStatus) {
+                            elements.memoryStatus.innerHTML = `
+                                <span class="text-blue-500">${data.memory_mb.toFixed(1)} MB</span>
+                            `;
+                        }
+                        
+                        // 更新资源图表
+                        if (window.resourceChart) {
+                            updateResourceChart(data.cpu_percent, data.memory_mb);
+                        }
+                    } else {
+                        Object.values(elements).forEach(element => {
+                            if (element) {
+                                element.innerHTML = `<span class="text-gray-500">-</span>`;
+                            }
+                        });
+                        
+                        // 重置图表数据
+                        if (window.resourceChart) {
+                            updateResourceChart(0, 0);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('获取状态失败:', error);
+                });
+            
+            // 获取在线玩家信息
+            axios.get(`/api/servers/${currentServerId}/players`)
+                .then(response => {
+                    const playersText = document.getElementById('players');
+                    if (playersText) {
+                        if (response.data.status === 'success') {
+                            const playerCount = response.data.count;
+                            playersText.innerHTML = `<span class="text-blue-500">${playerCount}/20</span>`;
+                            if (window.playersChart) {
+                                updatePlayersChart(playerCount);
+                            }
+                        } else {
+                            playersText.innerHTML = `<span class="text-gray-500">0/20</span>`;
+                            if (window.playersChart) {
+                                updatePlayersChart(0);
+                            }
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('获取玩家信息失败:', error);
+                    const playersText = document.getElementById('players');
+                    if (playersText) {
+                        playersText.innerHTML = `<span class="text-gray-500">0/20</span>`;
+                    }
+                    if (window.playersChart) {
+                        updatePlayersChart(0);
+                    }
+                });
+        }
+
+        // 更新日志
+        function updateLogs() {
+            if (!currentServerId) return;
+            
+            axios.get(`/api/logs/${currentServerId}`)
+                .then(response => {
+                    const logsDiv = document.getElementById('logs');
+                    logsDiv.innerHTML = response.data.logs.join('<br>');
+                    logsDiv.scrollTop = logsDiv.scrollHeight;
+                })
+                .catch(error => {
+                    console.error('获取日志失败:', error);
+                });
+        }
+
+        // 更新下载进度
+        function updateDownloadProgress() {
+            if (!currentServerId) return;
+            
+            axios.get(`/api/download/${currentServerId}/status`)
+                .then(response => {
+                    const data = response.data;
+                    const progressDiv = document.getElementById('downloadProgress');
+                    const statusSpan = document.getElementById('downloadStatus');
+                    const percentSpan = document.getElementById('downloadPercent');
+                    const progressBar = document.getElementById('downloadBar');
+                    const downloadBtn = document.getElementById('downloadStartBtn');
+                    
+                    progressDiv.classList.remove('hidden');
+                    statusSpan.textContent = data.message;
+                    percentSpan.textContent = `${Math.round(data.progress)}%`;
+                    progressBar.style.width = `${data.progress}%`;
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(downloadCheckInterval);
+                        setTimeout(() => {
+                            hideDownloadCoreModal();
+                            alert('核心下载成功！');
+                        }, 1000);
+                    } else if (data.status === 'error') {
+                        clearInterval(downloadCheckInterval);
+                        alert(`下载失败: ${data.message}`);
+                        hideDownloadCoreModal();
+                    }
+                })
+                .catch(error => {
+                    console.error('获取下载状态失败:', error);
+                });
+        }
+
+        // 下载核心
+        function downloadCore() {
+            const name = document.getElementById('coreType').value;
+            const mcVersion = document.getElementById('mcVersion').value;
+            const coreVersion = document.getElementById('coreVersion').value;
+            
+            if (!name || !mcVersion || !coreVersion) {
+                alert('请选择完整的核心信息');
+                return;
+            }
+            
+            document.getElementById('downloadStartBtn').disabled = true;
+            
+            axios.post(`/api/download/${currentServerId}`, {
+                name: name,
+                mc_version: mcVersion,
+                core_version: coreVersion
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        downloadCheckInterval = setInterval(updateDownloadProgress, 1000);
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('下载失败: ' + error.response?.data?.message || error.message);
+                    hideDownloadCoreModal();
+                });
+        }
+
+        // 启动服务器
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!currentServerId) return;
+            
+            axios.post(`/api/start/${currentServerId}`)
+                .then(response => {
+                    showNotification(response.data.message, 'success');
+                    updateStatus();
+                })
+                .catch(error => {
+                    showNotification(error.response?.data?.message || '启动失败', 'error');
+                });
+        });
+
+        // 停止服务器
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            if (!currentServerId) return;
+            
+            axios.post(`/api/stop/${currentServerId}`)
+                .then(response => {
+                    showNotification(response.data.message, 'success');
+                    updateStatus();
+                })
+                .catch(error => {
+                    showNotification(error.response?.data?.message || '停止失败', 'error');
+                });
+        });
+
+        // 下载核心按钮
+        document.getElementById('downloadBtn').addEventListener('click', showDownloadCoreModal);
+
+        // 文件管理相关函数
+        let currentPath = '';
+        let editingFilePath = '';
+
+        function switchTab(tabName) {
+            // 隐藏所有标签页内容
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // 取消选中所有标签按钮
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'border-blue-600');
+                btn.classList.add('text-gray-500', 'border-transparent');
+            });
+            
+            // 显示选中的标签页内容
+            const selectedTab = document.getElementById(tabName);
+            if (selectedTab) {
+                selectedTab.classList.remove('hidden');
+            }
+            
+            // 高亮选中的标签按钮
+            const selectedBtn = document.querySelector(`[data-tab="${tabName}"]`);
+            if (selectedBtn) {
+                selectedBtn.classList.remove('text-gray-500', 'border-transparent');
+                selectedBtn.classList.add('text-blue-600', 'border-blue-600');
+            }
+            
+            // 如果切换到控制台标签，显示命令输入框
+            if (tabName === 'console' && currentServerId) {
+                toggleCommandInput(currentServerId, true);
+            }
+            
+            // 如果切换到备份标签，加载备份列表
+            if (tabName === 'backups') {
+                loadBackups();
+            }
+            
+            // 如果切换到文件管理标签,刷新文件列表
+            if (tabName === 'files') {
+                loadFiles();
+            }
+        }
+
+        function loadFiles() {
+            if (!currentServerId) return;
+            
+            axios.get(`/api/files/${currentServerId}?path=${currentPath}`)
+                .then(response => {
+                    const fileList = document.getElementById('fileList');
+                    fileList.innerHTML = '';
+                    
+                    response.data.files.sort((a, b) => {
+                        if (a.type === b.type) return a.name.localeCompare(b.name);
+                        return a.type === 'directory' ? -1 : 1;
+                    }).forEach(file => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <i class="fas fa-${file.type === 'directory' ? 'folder text-yellow-500' : 'file text-gray-500'} mr-2"></i>
+                                    <span class="cursor-pointer hover:text-blue-500" onclick="${file.type === 'directory' ? `navigateTo('${file.name}')` : `editFile('${file.name}')`}">
+                                        ${file.name}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${file.type === 'directory' ? '-' : formatFileSize(file.size)}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${new Date(file.modified).toLocaleString()}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <button onclick="deleteFile('${file.name}')" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        fileList.appendChild(tr);
+                    });
+                    
+                    document.getElementById('currentPath').textContent = '/' + currentPath;
+                })
+                .catch(error => {
+                    console.error('加载文件列表失败:', error);
+                });
+        }
+
+        function navigateTo(folder) {
+            currentPath = currentPath ? `${currentPath}/${folder}` : folder;
+            loadFiles();
+        }
+
+        function navigateUp() {
+            if (!currentPath) return;
+            currentPath = currentPath.split('/').slice(0, -1).join('/');
+            loadFiles();
+        }
+
+        function formatFileSize(size) {
+            const units = ['B', 'KB', 'MB', 'GB'];
+            let i = 0;
+            while (size >= 1024 && i < units.length - 1) {
+                size /= 1024;
+                i++;
+            }
+            return `${size.toFixed(1)} ${units[i]}`;
+        }
+
+        function editFile(filename) {
+            const path = currentPath ? `${currentPath}/${filename}` : filename;
+            editingFilePath = path;
+            
+            axios.get(`/api/files/${currentServerId}/content?path=${path}`)
+                .then(response => {
+                    document.getElementById('editorFileName').textContent = filename;
+                    document.getElementById('fileContent').value = response.data.content;
+                    document.getElementById('fileEditorModal').classList.remove('hidden');
+                })
+                .catch(error => {
+                    alert('加载文件内容失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        function saveFile() {
+            const content = document.getElementById('fileContent').value;
+            
+            axios.post(`/api/files/${currentServerId}/content`, {
+                path: editingFilePath,
+                content: content
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        hideFileEditor();
+                        loadFiles();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('保存文件失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        function hideFileEditor() {
+            document.getElementById('fileEditorModal').classList.add('hidden');
+            editingFilePath = '';
+        }
+
+        function deleteFile(filename) {
+            if (!confirm(`确定要删除 ${filename} 吗？`)) return;
+            
+            const path = currentPath ? `${currentPath}/${filename}` : filename;
+            
+            axios.post(`/api/files/${currentServerId}/delete`, {
+                path: path
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        loadFiles();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('删除文件失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        function uploadFile(input) {
+            if (!input.files.length) return;
+            
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('path', currentPath);
+            
+            axios.post(`/api/files/${currentServerId}/upload`, formData)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        loadFiles();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('上传文件失败: ' + error.response?.data?.message || error.message);
+                });
+            
+            input.value = ''; // 清除选择的文件
+        }
+
+        // 加载公告
+        function loadAnnouncements() {
+            axios.get('/api/announcements')
+                .then(response => {
+                    const announcements = response.data.announcements;
+                    const container = document.getElementById('announcements');
+                    container.innerHTML = '';
+                    
+                    announcements.forEach(announcement => {
+                        const div = document.createElement('div');
+                        div.className = `bg-white rounded-lg shadow-lg p-6 ${
+                            announcement.type === 'warning' ? 'border-l-4 border-yellow-500' :
+                            announcement.type === 'info' ? 'border-l-4 border-blue-500' :
+                            ''
+                        }`;
+                        div.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-lg font-semibold">${announcement.title}</h3>
+                                    <p class="text-sm text-gray-500 mt-1">${announcement.date}</p>
+                                </div>
+                                <span class="px-2 py-1 text-xs rounded-full ${
+                                    announcement.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                    announcement.type === 'info' ? 'bg-blue-100 text-blue-800' :
+                                    ''
+                                }">
+                                    ${announcement.type}
+                                </span>
+                            </div>
+                            <div class="mt-4 text-gray-600 whitespace-pre-line">${announcement.content}</div>
+                        `;
+                        container.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载公告失败:', error);
+                });
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            axios.get('/api/servers')
+                .then(response => {
+                    const servers = response.data.servers;
+                    const totalServers = Object.keys(servers).length;
+                    document.getElementById('totalServers').textContent = totalServers;
+                    
+                    // 获取每个服务器的状态
+                    const promises = Object.keys(servers).map(id => 
+                        axios.get(`/api/status/${id}`)
+                    );
+                    
+                    Promise.all(promises).then(results => {
+                        const runningCount = results.filter(r => r.data.status === 'running').length;
+                        const totalMemory = results.reduce((sum, r) => {
+                            if (r.data.status === 'running') {
+                                return sum + r.data.memory_mb;
+                            }
+                            return sum;
+                        }, 0);
+                        
+                        document.getElementById('runningServers').textContent = runningCount;
+                        document.getElementById('totalMemory').textContent = `${totalMemory.toFixed(1)} MB`;
+                    });
+                })
+                .catch(error => {
+                    console.error('更新统计信息失败:', error);
+                });
+        }
+
+        // 命令相关函数
+        function executeCommand() {
+            if (!currentServerId) return;
+            
+            const command = document.getElementById('commandInput').value;
+            if (!command) return;
+            
+            axios.post(`/api/servers/${currentServerId}/command`, {
+                command: command
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        document.getElementById('commandInput').value = '';
+                        updateCommandHistory();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('执行命令失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        function updateCommandHistory() {
+            if (!currentServerId) return;
+            
+            axios.get(`/api/servers/${currentServerId}/command/history`)
+                .then(response => {
+                    const history = response.data.history;
+                    const container = document.getElementById('commandHistory');
+                    container.innerHTML = '';
+                    
+                    history.reverse().forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'py-1 hover:bg-gray-100 cursor-pointer';
+                        div.innerHTML = `
+                            <span class="text-gray-500 text-xs">${new Date(item.timestamp).toLocaleTimeString()}</span>
+                            <span class="ml-2">${item.command}</span>
+                        `;
+                        div.onclick = () => {
+                            document.getElementById('commandInput').value = item.command;
+                        };
+                        container.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('获取命令历史失败:', error);
+                });
+        }
+
+        // 快捷指令相关函数
+        function loadQuickCommands() {
+            axios.get('/api/quick-commands')
+                .then(response => {
+                    const commands = response.data.commands;
+                    const container = document.getElementById('quickCommands');
+                    container.innerHTML = '';
+                    
+                    Object.entries(commands).forEach(([name, data]) => {
+                        const button = document.createElement('button');
+                        button.className = 'bg-gray-100 hover:bg-gray-200 rounded px-3 py-1 text-sm flex items-center group';
+                        button.innerHTML = `
+                            <span class="mr-2">${name}</span>
+                            <i class="fas fa-times text-gray-400 hover:text-red-500 hidden group-hover:inline-block"
+                               onclick="event.stopPropagation(); deleteQuickCommand('${name}')"></i>
+                        `;
+                        button.title = data.description;
+                        button.onclick = () => {
+                            document.getElementById('commandInput').value = data.command;
+                        };
+                        container.appendChild(button);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载快捷指令失败:', error);
+                });
+        }
+
+        function showAddQuickCommandModal() {
+            document.getElementById('addQuickCommandModal').classList.remove('hidden');
+        }
+
+        function hideAddQuickCommandModal() {
+            document.getElementById('addQuickCommandModal').classList.add('hidden');
+            document.getElementById('quickCommandName').value = '';
+            document.getElementById('quickCommandCommand').value = '';
+            document.getElementById('quickCommandDescription').value = '';
+        }
+
+        function addQuickCommand() {
+            const name = document.getElementById('quickCommandName').value;
+            const command = document.getElementById('quickCommandCommand').value;
+            const description = document.getElementById('quickCommandDescription').value;
+            
+            if (!name || !command) {
+                alert('请填写名称和命令');
+                return;
+            }
+            
+            axios.post('/api/quick-commands', {
+                name: name,
+                command: command,
+                description: description
+            })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        hideAddQuickCommandModal();
+                        loadQuickCommands();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('添加快捷指令失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        function deleteQuickCommand(name) {
+            if (!confirm(`确定要删除快捷指令 "${name}" 吗？`)) return;
+            
+            axios.delete(`/api/quick-commands/${name}`)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        loadQuickCommands();
+                    } else {
+                        alert(response.data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('删除快捷指令失败: ' + error.response?.data?.message || error.message);
+                });
+        }
+
+        // 返回首页函数
+        function returnToHome() {
+            currentServerId = null;
+            document.getElementById('welcomePage').classList.remove('hidden');
+            document.getElementById('serverDetails').classList.add('hidden');
+            
+            // 清除定时器
+            if (updateStatusInterval) {
+                clearInterval(updateStatusInterval);
+                updateStatusInterval = null;
+            }
+            if (updateLogsInterval) {
+                clearInterval(updateLogsInterval);
+                updateLogsInterval = null;
+            }
+            
+            // 更新服务器列表和统计信息
+            loadServers();
+            updateStats();
+        }
+
+        // 面板设置相关函数
+        function showPanelSettings() {
+            document.getElementById('panelSettingsModal').classList.remove('hidden');
+            loadJavaPaths();
+        }
+
+        function hidePanelSettings() {
+            document.getElementById('panelSettingsModal').classList.add('hidden');
+        }
+
+        // 暗黑模式切换
+        function toggleDarkMode() {
+            const themeSwitch = document.getElementById('themeSwitch');
+            const isDark = !themeSwitch.classList.contains('active');
+            
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                themeSwitch.classList.add('active');
+            } else {
+                document.documentElement.classList.remove('dark');
+                themeSwitch.classList.remove('active');
+            }
+            
+            localStorage.setItem('darkMode', isDark);
+
+            // 重新初始化图表以更新样式
+            if (playersChart) {
+                initPlayersChart();
+            }
+        }
+
+        // 初始化暗黑模式
+        function initDarkMode() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            const themeSwitch = document.getElementById('themeSwitch');
+            
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                themeSwitch.classList.add('active');
+            }
+        }
+
+        // Java路径管理相关函数
+        function toggleJavaInput() {
+            const customInput = document.getElementById('customJavaInput');
+            const isCustom = document.querySelector('input[name="javaType"]:checked').value === 'custom';
+            customInput.classList.toggle('hidden', !isCustom);
+        }
+
+        function addSelectedJava() {
+            const isCustom = document.querySelector('input[name="javaType"]:checked').value === 'custom';
+            const path = isCustom ? document.getElementById('newJavaPath').value.trim() : 'java';
+            
+            if (isCustom && !path) {
+                alert('请输入Java路径');
+                return;
+            }
+            
+            axios.post('/api/java/paths', { path: path })
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        document.getElementById('newJavaPath').value = '';
+                        loadJavaPaths();
+                        updateSidebarJavaList();
+                        updateJavaSelect();
+                        alert('添加成功！\n版本信息: ' + response.data.version);
+                    } else {
+                        alert(response.data.message || '添加失败');
+                    }
+                })
+                .catch(error => {
+                    alert('添加Java路径失败: ' + (error.response?.data?.message || error.message));
+                });
+        }
+
+        // 添加文件选择处理函数
+        function handleJavaFileSelect(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                // 检查是否是javaw.exe或java.exe
+                if (!file.name.toLowerCase().match(/^(java|javaw)\.exe$/)) {
+                    alert('请选择java.exe或javaw.exe文件');
+                    input.value = '';
+                    return;
+                }
+                document.getElementById('newJavaPath').value = file.path;
+            }
+            input.value = ''; // 清除选择，允许重复选择同一文件
+        }
+
+        function loadJavaPaths() {
+            axios.get('/api/java/paths')
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const container = document.getElementById('javaPathsList');
+                        container.innerHTML = '';
+                        
+                        // 添加默认Java
+                        if (response.data.auto_paths) {
+                            const div = document.createElement('div');
+                            div.className = 'bg-gray-50 rounded p-3 flex items-center justify-between';
+                            div.innerHTML = `
+                                <div>
+                                    <p class="font-medium">${response.data.auto_paths.version}</p>
+                                    <p class="text-xs text-gray-500">系统默认</p>
+                                </div>
+                            `;
+                            container.appendChild(div);
+                        }
+                        
+                        // 添加自定义Java路径
+                        response.data.manual_paths.forEach(java => {
+                            const div = document.createElement('div');
+                            div.className = 'bg-gray-50 rounded p-3 flex items-center justify-between';
+                            const path = java.path;
+                            const version = java.version;
+                            div.innerHTML = `
+                                <div>
+                                    <p class="font-medium">${version}</p>
+                                    <p class="text-xs text-gray-500 truncate" title="${path}">${path}</p>
+                                </div>
+                                <button onclick="removeJavaPath('${btoa(path)}')" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            `;
+                            container.appendChild(div);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载Java路径失败:', error);
+                });
+        }
+
+        // 添加删除Java路径的函数
+        function removeJavaPath(encodedPath) {
+            if (!confirm('确定要删除这个Java路径吗？\n注意：如果该Java路径正在被服务器使用，将无法删除。')) return;
+            
+            axios.delete(`/api/java/paths/${encodedPath}`)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        loadJavaPaths();
+                        updateSidebarJavaList();
+                        updateJavaSelect();
+                    } else {
+                        alert(response.data.message || '删除失败');
+                    }
+                })
+                .catch(error => {
+                    alert('删除Java路径失败: ' + (error.response?.data?.message || error.message));
+                });
+        }
+
+        // 更新侧边栏Java列表
+        function updateSidebarJavaList() {
+            axios.get('/api/java/paths')
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const container = document.getElementById('sidebarJavaList');
+                        container.innerHTML = '';
+                        
+                        // 添加默认Java
+                        if (response.data.auto_paths) {
+                            const div = document.createElement('div');
+                            div.className = 'bg-white rounded p-2 text-xs';
+                            div.innerHTML = `
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium">${response.data.auto_paths.version}</p>
+                                        <p class="text-xs text-gray-500">系统默认</p>
+                                    </div>
+                                </div>
+                            `;
+                            container.appendChild(div);
+                        }
+                        
+                        // 添加自定义Java路径
+                        response.data.manual_paths.forEach(java => {
+                            const div = document.createElement('div');
+                            div.className = 'bg-white rounded p-2 text-xs';
+                            const path = java.path;
+                            const version = java.version;
+                            div.innerHTML = `
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="font-medium">${version}</p>
+                                        <p class="text-xs text-gray-500 truncate" title="${path}">${path}</p>
+                                    </div>
+                                </div>
+                            `;
+                            container.appendChild(div);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载Java列表失败:', error);
+                });
+        }
+
+        // 更新Java选择下拉框
+        function updateJavaSelect() {
+            axios.get('/api/java/paths')
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        const select = document.getElementById('settingsJavaPath');
+                        select.innerHTML = '';
+                        
+                        // 添加默认Java选项
+                        if (response.data.auto_paths) {
+                            const option = document.createElement('option');
+                            option.value = 'java';
+                            option.textContent = `系统默认 (${response.data.auto_paths.version})`;
+                            select.appendChild(option);
+                        }
+                        
+                        // 添加自定义Java选项
+                        response.data.manual_paths.forEach(java => {
+                            const option = document.createElement('option');
+                            const path = java.path;
+                            const version = java.version;
+                            option.value = path;
+                            option.textContent = `${version} (${path})`;
+                            select.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('加载Java版本选项失败:', error);
+                });
+        }
+
+        // 定时任务相关函数
+        function loadTasks() {
+            const serverId = currentServer.id;
+            fetch(`/api/tasks`)
+                .then(response => response.json())
+                .then(data => {
+                    const taskList = document.getElementById('taskList');
+                    taskList.innerHTML = '';
+                    
+                    data.tasks.forEach(task => {
+                        if (task.server_id === serverId) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${task.name}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        task.type === 'restart' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                                    }">
+                                        ${task.type === 'restart' ? '重启服务器' : '执行命令'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${
+                                        task.schedule_type === 'cron' ? 'Cron表达式' :
+                                        task.schedule_type === 'interval' ? '间隔时间' : '指定时间'
+                                    }</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${task.schedule_value}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-gray-900">${task.next_run_time || '未知'}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button onclick="editTask('${task.id}')" class="text-blue-600 hover:text-blue-900 mr-3">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button onclick="deleteTask('${task.id}')" class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            `;
+                            taskList.appendChild(row);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('加载任务失败:', error);
+                    showToast('加载任务失败', 'error');
+                });
+        }
+
+        function showCreateTaskModal() {
+            document.getElementById('createTaskModal').classList.remove('hidden');
+            // 默认显示指令输入框
+            toggleTaskFields('command');
+        }
+
+        function hideCreateTaskModal() {
+            document.getElementById('createTaskModal').classList.add('hidden');
+        }
+
+        function toggleTaskFields(type) {
+            const commandField = document.getElementById('commandField');
+            const backupField = document.getElementById('backupField');
+            
+            commandField.classList.add('hidden');
+            backupField.classList.add('hidden');
+            
+            if (type === 'command') {
+                commandField.classList.remove('hidden');
+            } else if (type === 'backup') {
+                backupField.classList.remove('hidden');
+            }
+        }
+
+        function createTask(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = {
+                name: formData.get('name'),
+                type: formData.get('type'),
+                schedule_type: formData.get('schedule_type'),
+                schedule_value: formData.get('schedule_value'),
+                server_id: currentServerId
+            };
+            
+            // 根据任务类型添加额外参数
+            if (data.type === 'command') {
+                data.command = formData.get('command');
+            } else if (data.type === 'backup') {
+                data.keep_backups = formData.get('keep_backups');
+            }
+            
+            axios.post('/api/tasks', data)
+                .then(response => {
+                    if (response.data.status === 'success') {
+                        hideCreateTaskModal();
+                        loadTasks();
+                        showToast('定时任务创建成功', 'success');
+                    } else {
+                        showToast(response.data.message || '创建任务失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    showToast('创建任务失败: ' + error.response?.data?.message || error.message, 'error');
+                });
+        }
+
+        // 添加通知函数
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            
+            let icon;
+            switch(type) {
+                case 'success':
+                    icon = 'check-circle';
+                    break;
+                case 'error':
+                    icon = 'times-circle';
+                    break;
+                case 'warning':
+                    icon = 'exclamation-triangle';
+                    break;
+                default:
+                    icon = 'info-circle';
+            }
+            
+            notification.innerHTML = `
+                <i class="fas fa-${icon}"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(notification);
+            
+            // 触发重排以启动动画
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            // 3秒后开始淡出
+            setTimeout(() => {
+                notification.style.transform = 'translateX(120%)';
+                setTimeout(() => {
+                    container.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // 退出登录
+        function logout() {
+            if (confirm('确定要退出登录吗？')) {
+                fetch('/api/logout', {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        window.location.href = '/login';
+                    } else {
+                        showToast(result.message || '退出失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('退出失败:', error);
+                    showToast('退出失败', 'error');
+                });
+            }
+        }
+
+        // 初始加载
+        loadServers();
+        loadAnnouncements();
+        updateStats();
+        updateSystemStats();  // 添加这行
+        updateSidebarJavaList();
+        setInterval(updateStats, 10000);
+        setInterval(updateSystemStats, 5000);  // 添加这行
+        initDarkMode();
+
+        // 在页面加载时初始化命令输入框状态
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeSelect = document.querySelector('select[name="type"]');
+            if (typeSelect) {
+                toggleCommandInput();
+            }
+        });
+
+        function updateSystemStats() {
+            fetch('/api/system/stats')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        document.getElementById('systemCpu').textContent = `${data.cpu_percent}%`;
+                        document.getElementById('systemMemory').textContent = 
+                            `${data.memory_percent}% (${data.memory_used}GB/${data.memory_total}GB)`;
+                    }
+                })
+                .catch(error => {
+                    console.error('获取系统状态失败:', error);
+                });
+        }
+
+        // 备份相关函数
+        function loadBackups() {
+            if (!currentServerId) return;
+            
+            fetch(`/api/servers/${currentServerId}/backups`)
+                .then(response => response.json())
+                .then(data => {
+                    const backupList = document.getElementById('backupList');
+                    backupList.innerHTML = '';
+                    
+                    data.backups.forEach(backup => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">${backup.name}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">${backup.size} MB</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">${formatBackupTime(backup.time)}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button onclick="downloadBackup('${backup.name}')" class="text-blue-600 hover:text-blue-900 mr-3">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                                <button onclick="deleteBackup('${backup.name}')" class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        backupList.appendChild(tr);
+                    });
+                })
+                .catch(error => {
+                    console.error('加载备份列表失败:', error);
+                    showToast('加载备份列表失败', 'error');
+                });
+        }
+
+        function formatBackupTime(timeStr) {
+            // 格式化时间字符串 YYYYMMDD_HHMMSS -> YYYY-MM-DD HH:MM:SS
+            return `${timeStr.slice(0,4)}-${timeStr.slice(4,6)}-${timeStr.slice(6,8)} ${timeStr.slice(9,11)}:${timeStr.slice(11,13)}:${timeStr.slice(13,15)}`;
+        }
+
+        function createBackup() {
+            if (!currentServerId) return;
+            
+            if (!confirm('确定要创建备份吗？这可能需要一些时间。')) return;
+            
+            fetch(`/api/servers/${currentServerId}/backup`, {
+                method: 'POST'
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        showToast('备份创建成功', 'success');
+                        loadBackups();
+                    } else {
+                        showToast(result.message || '创建备份失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('创建备份失败:', error);
+                    showToast('创建备份失败', 'error');
+                });
+        }
+
+        function downloadBackup(backupName) {
+            if (!currentServerId) return;
+            
+            window.location.href = `/api/servers/${currentServerId}/backups/${backupName}`;
+        }
+
+        function deleteBackup(backupName) {
+            if (!currentServerId) return;
+            
+            if (!confirm('确定要删除这个备份吗？此操作不可恢复。')) return;
+            
+            fetch(`/api/servers/${currentServerId}/backups/${backupName}`, {
+                method: 'DELETE'
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.status === 'success') {
+                        showToast('备份删除成功', 'success');
+                        loadBackups();
+                    } else {
+                        showToast(result.message || '删除备份失败', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('删除备份失败:', error);
+                    showToast('删除备份失败', 'error');
+                });
+        }
+
+        // 添加手动刷新函数
+        function refreshFiles() {
+            loadFiles();
+        }
+
+        // 新建文件相关函数
+        function showCreateFileModal() {
+            document.getElementById('createFileModal').classList.remove('hidden');
+        }
+
+        function hideCreateFileModal() {
+            document.getElementById('createFileModal').classList.add('hidden');
+            document.getElementById('newFileName').value = '';
+            document.getElementById('newFileContent').value = '';
+        }
+
+        function createNewFile() {
+            const fileName = document.getElementById('newFileName').value;
+            const content = document.getElementById('newFileContent').value;
+            
+            if (!fileName) {
+                alert('请输入文件名');
+                return;
+            }
+            
+            const path = currentPath ? `${currentPath}/${fileName}` : fileName;
+            
+            axios.post(`/api/files/${currentServerId}/content`, {
+                path: path,
+                content: content
+            })
+            .then(response => {
+                if (response.data.status === 'success') {
+                    hideCreateFileModal();
+                    loadFiles();
+                } else {
+                    alert(response.data.message);
+                }
+            })
+            .catch(error => {
+                alert('创建文件失败: ' + error.response?.data?.message || error.message);
+            });
+        }
+
+        // 新建文件夹相关函数
+        function showCreateFolderModal() {
+            document.getElementById('createFolderModal').classList.remove('hidden');
+        }
+
+        function hideCreateFolderModal() {
+            document.getElementById('createFolderModal').classList.add('hidden');
+            document.getElementById('newFolderName').value = '';
+        }
+
+        function createNewFolder() {
+            const folderName = document.getElementById('newFolderName').value;
+            
+            if (!folderName) {
+                alert('请输入文件夹名');
+                return;
+            }
+            
+            const path = currentPath ? `${currentPath}/${folderName}` : folderName;
+            
+            axios.post(`/api/files/${currentServerId}/create_folder`, {
+                path: path
+            })
+            .then(response => {
+                if (response.data.status === 'success') {
+                    hideCreateFolderModal();
+                    loadFiles();
+                } else {
+                    alert(response.data.message);
+                }
+            })
+            .catch(error => {
+                alert('创建文件夹失败: ' + error.response?.data?.message || error.message);
+            });
+        }
+
+        // 添加玩家统计图表相关变量和函数
+        let playersChart = null;
+        const playerData = {
+            labels: [],
+            datasets: [{
+                label: '在线玩家',
+                data: [],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+            }]
+        };
+
+        function initPlayersChart() {
+            const ctx = document.getElementById('playersChart').getContext('2d');
+            if (playersChart) {
+                playersChart.destroy();
+            }
+            
+            playersChart = new Chart(ctx, {
+                type: 'line',
+                data: playerData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#666'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: document.documentElement.classList.contains('dark') ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
+                            },
+                            ticks: {
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#666',
+                                maxRotation: 0
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#666'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updatePlayersChart(count) {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
+                           now.getMinutes().toString().padStart(2, '0') + ':' + 
+                           now.getSeconds().toString().padStart(2, '0');
+
+            playerData.labels.push(timeStr);
+            playerData.datasets[0].data.push(count);
+
+            // 保持最近30个数据点
+            if (playerData.labels.length > 30) {
+                playerData.labels.shift();
+                playerData.datasets[0].data.shift();
+            }
+
+            if (playersChart) {
+                playersChart.update('none');
+            }
+        }
+
+        let resourcesChart = null;
+        const maxDataPoints = 30;
+
+        function initCharts() {
+            // 初始化玩家统计图
+            const playersCtx = document.getElementById('playersChart').getContext('2d');
+            playersChart = new Chart(playersCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '在线玩家',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 初始化资源统计图
+            const resourcesCtx = document.getElementById('resourcesChart').getContext('2d');
+            resourcesChart = new Chart(resourcesCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'CPU使用率',
+                            data: [],
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '内存使用(MB)',
+                            data: [],
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'CPU使用率(%)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '内存使用(MB)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateCharts(playerCount, cpuPercent, memoryMB) {
+            const now = new Date().toLocaleTimeString();
+            
+            // 更新玩家统计图
+            if (playersChart) {
+                playersChart.data.labels.push(now);
+                playersChart.data.datasets[0].data.push(playerCount);
+                
+                if (playersChart.data.labels.length > maxDataPoints) {
+                    playersChart.data.labels.shift();
+                    playersChart.data.datasets[0].data.shift();
+                }
+                playersChart.update();
+            }
+            
+            // 更新资源统计图
+            if (resourcesChart) {
+                resourcesChart.data.labels.push(now);
+                resourcesChart.data.datasets[0].data.push(cpuPercent);
+                resourcesChart.data.datasets[1].data.push(memoryMB);
+                
+                if (resourcesChart.data.labels.length > maxDataPoints) {
+                    resourcesChart.data.labels.shift();
+                    resourcesChart.data.datasets[0].data.shift();
+                    resourcesChart.data.datasets[1].data.shift();
+                }
+                resourcesChart.update();
+            }
+        }
+
+        // 在服务器启动时初始化图表
+        function onServerStart() {
+            if (!playersChart || !resourcesChart) {
+                initCharts();
+            }
+            // 清空现有数据
+            if (playersChart) {
+                playersChart.data.labels = [];
+                playersChart.data.datasets[0].data = [];
+                playersChart.update();
+            }
+            if (resourcesChart) {
+                resourcesChart.data.labels = [];
+                resourcesChart.data.datasets[0].data = [];
+                resourcesChart.data.datasets[1].data = [];
+                resourcesChart.update();
+            }
+        }
+
+        // 修改updateServerStatus函数，加入图表更新
+        function updateServerStatus() {
+            if (!currentServer) return;
+            
+            fetch(`/api/status/${currentServer}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "running") {
+                        // 更新状态显示
+                        document.getElementById("serverStatus").innerHTML = `
+                            <span class="text-green-500">运行中</span>
+                            <p class="text-sm text-gray-500">PID: ${data.pid}</p>
+                        `;
+                        document.getElementById("cpuStatus").innerHTML = `
+                            <span class="text-blue-500">${data.cpu_percent.toFixed(1)}%</span>
+                        `;
+                        document.getElementById("memoryStatus").innerHTML = `
+                            <span class="text-blue-500">${data.memory_mb.toFixed(1)} MB</span>
+                        `;
+                        
+                        // 获取在线玩家数量
+                        fetch(`/api/servers/${currentServer}/players`)
+                            .then(response => response.json())
+                            .then(playerData => {
+                                // 更新图表
+                                updateCharts(
+                                    playerData.count,
+                                    data.cpu_percent,
+                                    data.memory_mb
+                                );
+                            });
+                    } else {
+                        document.getElementById("serverStatus").innerHTML = `
+                            <span class="text-red-500">已停止</span>
+                        `;
+                        document.getElementById("cpuStatus").innerHTML = `
+                            <span class="text-gray-500">0%</span>
+                        `;
+                        document.getElementById("memoryStatus").innerHTML = `
+                            <span class="text-gray-500">0 MB</span>
+                        `;
+                    }
+                });
+        }
+
+        // 修改startServer函数，在服务器启动时初始化图表
+        async function startServer() {
+            if (!currentServer) return;
+            
+            try {
+                const response = await fetch(`/api/start/${currentServer}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                
+                if (data.status === "success") {
+                    showNotification("服务器正在启动", "success");
+                    onServerStart(); // 初始化图表
+                } else {
+                    showNotification(data.message, "error");
+                }
+            } catch (error) {
+                showNotification("启动失败: " + error, "error");
+            }
+        }
+
+        // 添加资源图表更新函数
+        function updateResourceChart(cpuPercent, memoryMB) {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + 
+                           now.getMinutes().toString().padStart(2, '0') + ':' + 
+                           now.getSeconds().toString().padStart(2, '0');
+
+            if (window.resourcesChart) {
+                resourcesChart.data.labels.push(timeStr);
+                resourcesChart.data.datasets[0].data.push(cpuPercent);
+                resourcesChart.data.datasets[1].data.push(memoryMB);
+
+                // 保持最近30个数据点
+                if (resourcesChart.data.labels.length > 30) {
+                    resourcesChart.data.labels.shift();
+                    resourcesChart.data.datasets[0].data.shift();
+                    resourcesChart.data.datasets[1].data.shift();
+                }
+
+                resourcesChart.update('none');
+            }
+        }
+
+        // 初始化资源统计图表
+        function initResourcesChart() {
+            const resourcesCtx = document.getElementById('resourcesChart').getContext('2d');
+            resourcesChart = new Chart(resourcesCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'CPU使用率',
+                            data: [],
+                            borderColor: 'rgb(239, 68, 68)',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '内存使用(MB)',
+                            data: [],
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'CPU使用率(%)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '内存使用(MB)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html> 
