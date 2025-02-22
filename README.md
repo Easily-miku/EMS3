@@ -52,7 +52,7 @@ EMCSL3（Easy Minecraft Server Launcher 3）是一个专业的Minecraft服务器
 
 1. 克隆仓库或下载源码：
    ```bash
-   git clone https://github.com/Easily-miku/EMCSL3.git
+   git clone https://github.com/your-username/EMCSL3.git
    cd EMCSL3
    ```
 
@@ -174,8 +174,8 @@ EMCSL3（Easy Minecraft Server Launcher 3）是一个专业的Minecraft服务器
 
 ## 📞 联系方式
 
-- 项目主页：[GitHub](https://github.com/Easily-miku/EMCSL3)
-- 问题反馈：[Issues](https://github.com/Easily-miku/EMCSL3/issues)
+- 项目主页：[GitHub](https://github.com/your-username/EMCSL3)
+- 问题反馈：[Issues](https://github.com/your-username/EMCSL3/issues)
 - 邮箱：your-email@example.com
 
 ---
