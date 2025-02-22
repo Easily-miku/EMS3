@@ -18,6 +18,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.date import DateTrigger
 import zipfile
+from shutil import which
 
 app = Flask(__name__)
 
@@ -32,6 +33,12 @@ scheduler = BackgroundScheduler()
 # 定时任务存储
 scheduled_tasks = {}
 
+# OpenFrp API 基础URL
+OPENFRP_BASE_URL = "https://api.openfrp.net"
+
+# OpenFrp 运行状态
+frpc_process = None
+
 # 添加日志翻译字典
 LOG_TRANSLATIONS = {
     "Done": "完成",
@@ -41,64 +48,63 @@ LOG_TRANSLATIONS = {
     "Preparing level": "准备世界中",
     "Starting Minecraft server on": "在以下地址启动Minecraft服务器",
     "Preparing spawn area": "准备出生点区域",
-    "Preparing start region": "准备起始区域",
     "Time elapsed": "耗时",
-    "Done": "完成",
     "For help": "获取帮助请输入",
     "Stopping server": "正在停止服务器",
-    "Stopping the server": "正在停止服务器",
     "Server stopped": "服务器已停止",
-    "Starting GS4 status listener": "启动GS4状态监听器",
-    "Thread Query Listener": "查询监听器线程",
-    "Starting Remote Control listener": "启动远程控制监听器",
-    "Thread RCON Listener": "RCON监听器线程",
-    "RCON running on": "RCON运行在",
-    "Loading dimension": "加载维度",
-    "Loaded": "已加载",
-    "entities": "个实体",
-    "chunks": "个区块",
-    "Saving chunks": "保存区块中",
-    "Saving players": "保存玩家数据",
-    "Saving worlds": "保存世界",
     "joined the game": "加入了游戏",
     "left the game": "离开了游戏",
     "Unknown command": "未知命令",
-    "Invalid command syntax": "命令语法无效",
-    "The game is running in": "游戏正在运行于",
-    "debug mode": "调试模式",
-    "Starting integrated minecraft server": "启动集成的Minecraft服务器",
-    "Generating keypair": "生成密钥对",
-    "Starting Minecraft server on": "在以下地址启动Minecraft服务器",
-    "Preparing spawn area": "准备出生点区域",
-    "Checking version": "检查版本",
-    "Starting mineraft server version": "启动Minecraft服务器版本",
-    "Loading libraries": "加载库文件",
-    "Loading plugins": "加载插件",
-    "Server permissions file": "服务器权限文件",
-    "Converting map": "转换地图",
-    "Preparing level": "准备世界",
-    "Level seed": "世界种子",
-    "Server Ping Player Sample Count": "服务器Ping玩家示例数",
-    "Using epoll channel type": "使用epoll通道类型",
-    "Debug logging is enabled": "已启用调试日志",
-    "Starting minecraft server version": "启动Minecraft服务器版本",
-    "Loading properties": "加载属性",
-    "This server is running": "此服务器正在运行",
-    "Starting GS4 status listener": "启动GS4状态监听器",
-    "Thread Query Listener": "查询监听器线程",
-    "Query running on": "查询运行在",
-    "Starting Remote Control listener": "启动远程控制监听器",
-    "Thread RCON Listener": "RCON监听器线程",
-    "RCON running on": "RCON运行在",
-    "Loading dimension": "加载维度",
-    "Preparing start region for dimension": "准备维度的起始区域",
-    "Preparing spawn area": "准备出生点区域",
-    "Done": "完成",
-    "Starting Minecraft server on": "在以下地址启动Minecraft服务器",
-    "Server thread/INFO": "服务器线程/信息",
-    "Server thread/WARN": "服务器线程/警告",
-    "Server thread/ERROR": "服务器线程/错误"
+    "Invalid command syntax": "命令语法无效"
 }
+
+class OpenFrpAPI:
+    def __init__(self, token, authorization):
+        self.token = token
+        self.authorization = authorization
+        self.headers = {"Authorization": authorization}
+    
+    def get_user_info(self):
+        """获取用户信息"""
+        try:
+            response = requests.post(
+                f"{OPENFRP_BASE_URL}/frp/api/getUserInfo",
+                headers=self.headers
+            )
+            data = response.json()
+            if data["flag"]:
+                return {"success": True, "data": data["data"]}
+            return {"success": False, "message": data.get("msg", "获取用户信息失败")}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def get_node_list(self):
+        """获取节点列表"""
+        try:
+            response = requests.post(
+                f"{OPENFRP_BASE_URL}/frp/api/getNodeList",
+                headers=self.headers
+            )
+            data = response.json()
+            if data["flag"]:
+                return {"success": True, "data": data["data"]}
+            return {"success": False, "message": data.get("msg", "获取节点列表失败")}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def get_proxies(self):
+        """获取用户隧道列表"""
+        try:
+            response = requests.post(
+                f"{OPENFRP_BASE_URL}/frp/api/getUserProxies",
+                headers=self.headers
+            )
+            data = response.json()
+            if data["flag"]:
+                return {"success": True, "data": data["data"]["list"]}
+            return {"success": False, "message": data.get("msg", "获取隧道列表失败")}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
 
 def find_java_in_path():
     """在系统PATH中查找默认的Java"""
@@ -1583,6 +1589,133 @@ def create_folder(server_id):
             "status": "error",
             "message": f"创建文件夹失败: {str(e)}"
         })
+
+# OpenFrp API 相关路由
+@app.route('/api/openfrp/user_info', methods=['GET'])
+def get_user_info():
+    """获取用户信息接口"""
+    token = request.args.get('token')
+    authorization = request.args.get('authorization')
+    if not token or not authorization:
+        return jsonify({"success": False, "message": "缺少token或authorization参数"})
+    
+    api = OpenFrpAPI(token, authorization)
+    result = api.get_user_info()
+    return jsonify(result)
+
+@app.route('/api/openfrp/nodes', methods=['GET'])
+def get_nodes():
+    """获取节点列表接口"""
+    token = request.args.get('token')
+    authorization = request.args.get('authorization')
+    if not token or not authorization:
+        return jsonify({"success": False, "message": "缺少token或authorization参数"})
+    
+    api = OpenFrpAPI(token, authorization)
+    result = api.get_node_list()
+    return jsonify(result)
+
+@app.route('/api/openfrp/proxies', methods=['GET'])
+def get_proxies():
+    """获取隧道列表接口"""
+    token = request.args.get('token')
+    authorization = request.args.get('authorization')
+    if not token or not authorization:
+        return jsonify({"success": False, "message": "缺少token或authorization参数"})
+    
+    api = OpenFrpAPI(token, authorization)
+    result = api.get_proxies()
+    return jsonify(result)
+
+@app.route('/api/openfrp/start', methods=['POST'])
+def start_proxy():
+    """启动指定隧道"""
+    token = request.json.get('token')
+    proxy_id = request.json.get('proxy_id')
+    
+    if not token or not proxy_id:
+        return jsonify({"success": False, "message": "缺少token或proxy_id参数"})
+    
+    success, message = run_frpc_background(token, proxy_id)
+    return jsonify({"success": success, "message": message})
+
+@app.route('/api/openfrp/stop', methods=['POST'])
+def stop_proxy():
+    """停止当前运行的隧道"""
+    success = stop_frpc()
+    return jsonify({
+        "success": success,
+        "message": "隧道已停止" if success else "没有正在运行的隧道"
+    })
+
+def stop_frpc():
+    """停止frpc进程"""
+    global frpc_process
+    if frpc_process:
+        try:
+            frpc_process.terminate()
+            time.sleep(2)
+            if frpc_process.poll() is None:
+                frpc_process.kill()
+            frpc_process = None
+            return True
+        except Exception as e:
+            print(f"停止frpc失败: {e}")
+            return False
+    return False
+
+def run_frpc_background(token, proxy_id):
+    """后台运行frpc"""
+    global frpc_process
+    try:
+        # 先停止现有的frpc进程
+        stop_frpc()
+        
+        # 根据操作系统确定frpc命令
+        if os.name == 'nt':  # Windows系统
+            frpc_path = "frpc/frpc.exe"
+            if not os.path.exists(frpc_path):
+                return False, "no_frpc_windows"  # Windows下未找到frpc.exe
+        else:  # Linux/Unix系统
+            # 检查PATH中是否存在frpc
+            frpc_path = which('frpc')
+            if not frpc_path:
+                return False, "no_frpc_linux"  # Linux下未找到frpc
+            
+        # 构建启动命令
+        cmd = [
+            frpc_path,
+            "-u", token,
+            "-p", str(proxy_id)
+        ]
+        
+        # 在后台运行frpc
+        startupinfo = None
+        if os.name == 'nt':
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = subprocess.SW_HIDE
+            
+        frpc_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            startupinfo=startupinfo
+        )
+        
+        # 等待一段时间检查进程是否正常运行
+        time.sleep(2)
+        if frpc_process.poll() is None:
+            return True, "frpc启动成功"
+        else:
+            error = frpc_process.stderr.read().decode()
+            return False, f"frpc启动失败: {error}"
+    except Exception as e:
+        return False, f"启动frpc失败: {str(e)}"
+
+@app.route('/frp')
+def frp():
+    return render_template('frp.html')
 
 if __name__ == '__main__':
     config = load_config()
