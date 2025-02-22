@@ -1,244 +1,182 @@
-# EMS3 - 简单高效的Minecraft服务器管理面板
+# EMCSL3 - 专业的Minecraft服务器管理面板
 
-EMS3（Easy Minecraft Server Management System 3）是一个用Python编写的轻量级Minecraft服务器管理面板。它提供了直观的Web界面，让您可以轻松管理多个Minecraft服务器。
+EMCSL3（Easy Minecraft Server Launcher 3）是一个专业的Minecraft服务器管理面板，采用Python + Flask开发，提供直观的Web界面来管理您的Minecraft服务器。它支持多服务器管理、状态监控、文件管理、备份系统等功能，是一个轻量级但功能强大的管理工具。
 
-🌐 [在线演示](https://easily-miku.github.io/EMS3/index.html)
+## ✨ 主要特性
 
-## 特性
+### 🎮 服务器管理
+- 支持创建和管理多个服务器实例
+- 实时监控服务器状态（CPU、内存使用率）
+- 在线玩家列表和管理
+- 服务器控制台实时输出
+- 支持自定义启动参数和Java路径
 
-- 🚀 轻量级且高效
-- 💻 美观的Web界面
-- 🔄 实时状态监控
-- 📁 文件管理系统
-- 🎮 服务器控制台
-- ⚡ 快捷命令系统
-- 🌙 暗黑模式支持
-- 🔧 多Java版本管理
-- 📊 资源使用监控
-- 🔌 插件和模组支持
-- ⏰ 定时任务系统
-- 💾 自动备份功能
+### 📁 文件管理
+- 在线文件编辑器
+- 文件上传/下载功能
+- 目录结构浏览
+- 文件权限管理
 
-## 系统要求
+### 💾 备份系统
+- 支持手动/自动备份
+- 备份文件管理和恢复
+- 可配置备份保留数量
+- 支持定时备份计划
 
-- Python 3.7+
+### ⏰ 定时任务
+- 支持Cron表达式
+- 定时执行服务器命令
+- 定时重启服务器
+- 定时备份功能
+
+### 🌐 内网穿透（OpenFrp）
+- 集成OpenFrp内网穿透
+- 支持管理多条隧道
+- 实时显示隧道状态
+- 一键开启/关闭隧道
+
+### 🛡️ 安全特性
+- 登录验证系统
+- 密码加密存储
+- 操作日志记录
+- 支持反向代理
+
+## 🚀 快速开始
+
+### 环境要求
+- Python 3.8+
 - Java（用于运行Minecraft服务器）
 - 现代浏览器（Chrome、Firefox、Edge等）
 
-## 快速安装
+### 方式一：源码运行
 
-### Linux系统（推荐）
+1. 克隆仓库或下载源码：
+   ```bash
+   git clone https://github.com/Easily-miku/EMCSL3.git
+   cd EMCSL3
+   ```
 
-使用一键安装脚本（支持Ubuntu/Debian/CentOS）：
+2. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```bash
-wget -O install.sh https://raw.githubusercontent.com/Easily-miku/EMS3/main/install.sh
-chmod +x install.sh
-./install.sh
-```
+3. 运行程序：
+   ```bash
+   python app.py
+   ```
 
-安装完成后，可以使用以下命令管理EMS3：
+4. 访问Web界面：
+   - 打开浏览器访问 `http://localhost:5000`
+   - 默认账号：admin
+   - 默认密码：admin
 
-```bash
-# 启动服务
-sudo emcsl 1
+### 方式二：使用打包版本
 
-# 停止服务
-sudo emcsl 2
+1. 下载最新的发布版本
+2. 解压后运行`EMCSL3.exe`
+3. 访问 `http://localhost:5000`
 
-# 重启服务
-sudo emcsl 3
-
-# 查看状态
-sudo emcsl 4
-
-# 查看日志
-sudo emcsl 5
-
-# 查看系统资源
-sudo emcsl 6
-
-# 查看帮助信息
-emcsl --help
-```
-
-### Windows系统
-
-1. 克隆仓库：
-```bash
-git clone https://github.com/Easily-miku/EMS3.git
-cd EMS3
-```
-
-2. 运行初始化脚本：
-```bash
-python init.py
-```
-
-3. 安装依赖：
-```bash
-pip install -r requirements.txt
-```
-
-4. 启动面板：
-```bash
-python app.py
-```
-
-5. 访问面板：
-打开浏览器访问 `http://localhost:5000`
-
-## 配置说明
+## 📝 配置说明
 
 ### 配置文件
-
 配置文件位于 `config/config.json`，包含以下主要设置：
-
 - `web_port`: Web面板端口号
+- `security`: 安全相关配置
 - `java_paths`: Java路径配置
 - `quick_commands`: 快捷命令配置
 - `servers`: 服务器配置
 
 ### Java配置
-
-支持多个Java版本，可以在面板设置中添加：
-- 自动检测系统默认Java
-- 手动添加Java路径
-- 为每个服务器单独配置Java版本
+- 支持自动检测系统Java
+- 可手动添加多个Java路径
+- 支持为每个服务器指定不同的Java版本
 
 ### 快捷命令
-
-预设的快捷命令包括：
+预设快捷命令包括：
 - op：设置管理员
 - gamemode：更改游戏模式
 - time：设置时间
 - weather：设置天气
 
-可以在面板中添加自定义快捷命令。
+## 🔌 内网穿透配置
 
-## 功能特性
+### Windows用户
+1. 访问 [OpenFrp官网](https://www.openfrp.net) 注册账号
+2. 下载frpc.exe客户端
+3. 将frpc.exe放置在程序目录的frpc文件夹中
+4. 在面板中配置Token和Authorization
 
-### 服务器管理
-- 创建和管理多个服务器实例
-- 实时监控服务器状态
-- CPU和内存使用监控
-- 在线玩家列表
+### Linux用户
+1. 安装frpc
+   ```bash
+   # Debian/Ubuntu
+   apt-get install frpc
 
-### 文件管理
-- 在线文件编辑器
-- 文件上传/下载
-- 目录浏览和管理
-- 权限管理
+   # CentOS
+   yum install frpc
+   ```
+2. 确保frpc在系统PATH中
+3. 在面板中配置相关信息
 
-### 控制台功能
-- 实时日志显示
-- 命令执行和历史记录
-- 快捷命令支持
-- 自定义命令模板
+## ⚠️ 注意事项
 
-### 定时任务
-- Cron表达式支持
-- 定时执行命令
-- 定时重启服务器
-- 任务管理界面
+### 安全建议
+1. 首次使用后立即修改默认密码
+2. 建议使用反向代理（如Nginx）并启用HTTPS
+3. 配置防火墙规则，只允许必要的端口访问
+4. 定期备份服务器数据和配置文件
+5. 不要在公网直接暴露管理面板
+6. 定期检查并更新系统
 
-### 备份系统
-- 手动/自动备份
-- 备份文件管理
-- 一键恢复功能
-- 定时备份计划
+### 性能优化
+1. 合理设置Java内存参数
+2. 根据需要调整备份策略
+3. 适当配置定时任务间隔
+4. 及时清理不需要的日志和备份
 
-### 系统监控
-- CPU使用率监控
-- 内存使用监控
-- 磁盘空间监控
-- 系统负载监控
+## 🔍 常见问题
 
-## 命令行工具
+### 无法启动服务器
+- 检查Java路径配置是否正确
+- 确认服务器端口未被占用
+- 查看日志获取详细错误信息
 
-Linux系统提供`emcsl`命令行工具：
+### 内存使用异常
+- 检查Java启动参数配置
+- 确认系统可用内存充足
+- 适当调整最大内存限制
 
-```bash
-使用方法: emcsl <命令编号>
+### 内网穿透问题
+- 确认frpc程序存在且配置正确
+- 检查OpenFrp账号配置
+- 查看隧道日志排查问题
 
-可用命令:
-1  - 启动EMS3服务
-2  - 停止EMS3服务
-3  - 重启EMS3服务
-4  - 查看EMS3服务状态
-5  - 查看EMS3日志
-6  - 查看系统资源使用情况
-7  - 检查Java版本
-8  - 检查Python版本
-9  - 更新EMS3
-0  - 显示帮助信息
-```
+## 🤝 贡献指南
 
-## 安全建议
+欢迎提交Pull Request和Issue！在提交之前，请：
+1. Fork本仓库并创建新分支
+2. 确保代码符合项目规范
+3. 提供清晰的提交信息
+4. 更新相关文档
 
-1. 修改默认端口
-2. 设置防火墙规则
-3. 使用反向代理（如Nginx）
-4. 定期备份服务器文件
-5. 启用HTTPS
-6. 设置强密码
+## 📜 开源协议
 
-## 常见问题
+本项目采用MIT协议开源，详见 [LICENSE](LICENSE) 文件。
 
-1. **无法启动服务器**
-   - 检查Java路径配置
-   - 确认端口未被占用
-   - 查看日志获取详细错误信息
+## 🌟 致谢
 
-2. **CPU使用率显示异常**
-   - 已优化多核CPU显示
-   - 显示为单核平均使用率
+感谢以下开源项目：
+- Flask
+- PyInstaller
+- APScheduler
+- OpenFrp
 
-3. **内存使用显示**
-   - 显示实际物理内存使用
-   - 单位为MB
+## 📞 联系方式
 
-## 更新日志
+- 项目主页：[GitHub](https://github.com/Easily-miku/EMCSL3)
+- 问题反馈：[Issues](https://github.com/Easily-miku/EMCSL3/issues)
+- 邮箱：your-email@example.com
 
-### v3.1.5
-- 新增图表显示
-- 修复自动任务的BUG
-- 修复文件列表的显示
-- 修复其他BUG 
-
-
-### v3.1.0
-- 全新的Web界面
-- 定时任务
-- 玩家数量显示
-- 自动备份功能
-
-- 
-### v3.0.0
-- 全新的Web界面
-- 多Java版本支持
-- 实时资源监控
-- 文件管理系统优化
-- 暗黑模式支持
-
-## 贡献指南
-
-欢迎提交Pull Request和Issue。在提交之前，请：
-
-1. 确保代码符合PEP 8规范
-2. 添加必要的注释
-3. 更新相关文档
-
-## 许可证
-
-本项目采用GNU3.0许可证。详见 [LICENSE](LICENSE) 文件。
-
-## 相关链接
-
-- 🌐 [在线演示](https://easily-miku.github.io/EMS3/index.html)
-- 📦 [项目主页](https://github.com/Easily-miku/EMS3)
-- 🐛 [问题反馈](https://github.com/Easily-miku/EMS3/issues)
-
-## 致谢
-
-感谢所有为本项目做出贡献的开发者。
+---
+如果觉得这个项目对你有帮助，欢迎点个Star⭐支持一下！
