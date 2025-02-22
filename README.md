@@ -173,7 +173,7 @@ EMCSL3（Easy Minecraft Server Launcher 3）是一个专业的Minecraft服务器
 
 - 项目主页：[GitHub](https://github.com/your-username/EMCSL3)
 - 问题反馈：[Issues](https://github.com/your-username/EMCSL3/issues)
-- 邮箱：your-email@example.com
+- 邮箱：1502271252@qq.com
 
 ---
 如果觉得这个项目对你有帮助，欢迎点个Star⭐支持一下！
