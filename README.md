@@ -71,11 +71,8 @@ EMCSL3（Easy Minecraft Server Launcher 3）是一个专业的Minecraft服务器
    - 默认账号：admin
    - 默认密码：admin
 
-### 方式二：使用打包版本
+### 方式二：直接运行py文件
 
-1. 下载最新的发布版本
-2. 解压后运行`EMCSL3.exe`
-3. 访问 `http://localhost:5000`
 
 ## 📝 配置说明
 
