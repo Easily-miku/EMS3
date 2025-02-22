@@ -208,6 +208,15 @@
                     <div id="serverList" class="space-y-2">
                         <!-- 服务器列表将通过JavaScript动态生成 -->
                     </div>
+                    <!-- 添加内网穿透入口 -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <h2 class="text-lg font-semibold mb-4">内网穿透</h2>
+                        <div class="space-y-2">
+                            <button onclick="showFrpSettings()" class="w-full text-left px-3 py-2 rounded hover:bg-gray-100">
+                                <i class="fas fa-network-wired mr-2"></i>OpenFrp 设置
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -257,6 +266,52 @@
                                         <p class="text-gray-500">总内存占用</p>
                                         <p id="totalMemory" class="text-xl font-semibold">0 MB</p>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 添加内网穿透卡片 -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                            <!-- OpenFrp用户信息卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold">OpenFrp 用户信息</h3>
+                                    <button onclick="showFrpSettings()" class="text-blue-500 hover:text-blue-700">
+                                        <i class="fas fa-cog"></i>
+                                    </button>
+                                </div>
+                                <div id="frpUserInfo" class="space-y-2">
+                                    <div class="placeholder-glow">
+                                        <p class="placeholder col-12"></p>
+                                        <p class="placeholder col-12"></p>
+                                        <p class="placeholder col-12"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 隧道列表卡片 -->
+                            <div class="bg-white rounded-lg shadow-lg p-6">
+                                <h3 class="text-lg font-semibold mb-4">我的隧道</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-left">名称</th>
+                                                <th class="text-left">类型</th>
+                                                <th class="text-left">状态</th>
+                                                <th class="text-left">操作</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="frpProxyList">
+                                            <tr>
+                                                <td colspan="4" class="text-center py-4">
+                                                    <div class="placeholder-glow">
+                                                        <span class="placeholder col-12"></span>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -909,6 +964,38 @@
 
     <!-- 添加通知容器 -->
     <div id="notificationContainer"></div>
+
+    <!-- 添加OpenFrp设置模态框 -->
+    <div id="frpSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">OpenFrp 设置</h3>
+                <button onclick="hideFrpSettings()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Token</label>
+                    <input type="text" id="frpToken" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <div class="text-sm text-gray-500 mt-1">在OpenFrp面板中获取的用户密钥</div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Authorization</label>
+                    <input type="text" id="frpAuthorization" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <div class="text-sm text-gray-500 mt-1">在OpenFrp面板中的"第三方客户端安全登录"中获取</div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-4">
+                <button onclick="hideFrpSettings()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                    取消
+                </button>
+                <button onclick="saveFrpSettings()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         // 侧边栏切换
@@ -2755,6 +2842,193 @@
                 }
             });
         }
+
+        // 添加OpenFrp相关函数
+        let frpToken = localStorage.getItem('openfrp_token');
+        let frpAuthorization = localStorage.getItem('openfrp_authorization');
+
+        function showFrpSettings() {
+            document.getElementById('frpToken').value = frpToken || '';
+            document.getElementById('frpAuthorization').value = frpAuthorization || '';
+            document.getElementById('frpSettingsModal').classList.remove('hidden');
+        }
+
+        function hideFrpSettings() {
+            document.getElementById('frpSettingsModal').classList.add('hidden');
+        }
+
+        function saveFrpSettings() {
+            const newToken = document.getElementById('frpToken').value;
+            const newAuth = document.getElementById('frpAuthorization').value;
+            
+            if (!newToken || !newAuth) {
+                showNotification('请填写完整信息', 'error');
+                return;
+            }
+            
+            frpToken = newToken;
+            frpAuthorization = newAuth;
+            localStorage.setItem('openfrp_token', newToken);
+            localStorage.setItem('openfrp_authorization', newAuth);
+            
+            hideFrpSettings();
+            loadFrpInfo();
+            showNotification('设置已保存', 'success');
+        }
+
+        function loadFrpInfo() {
+            if (!frpToken || !frpAuthorization) {
+                document.getElementById('frpUserInfo').innerHTML = `
+                    <div class="text-center py-4">
+                        <p class="text-gray-500">请先配置OpenFrp设置</p>
+                        <button onclick="showFrpSettings()" class="mt-2 text-blue-500 hover:text-blue-700">
+                            <i class="fas fa-cog mr-2"></i>配置
+                        </button>
+                    </div>
+                `;
+                document.getElementById('frpProxyList').innerHTML = `
+                    <tr>
+                        <td colspan="4" class="text-center py-4">
+                            <p class="text-gray-500">未配置</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            // 加载用户信息
+            fetch(`/api/openfrp/user_info?token=${frpToken}&authorization=${frpAuthorization}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const info = data.data;
+                        document.getElementById('frpUserInfo').innerHTML = `
+                            <p><strong>用户名：</strong>${info.username}</p>
+                            <p><strong>邮箱：</strong>${info.email}</p>
+                            <p><strong>用户组：</strong>${info.friendlyGroup}</p>
+                            <p><strong>剩余流量：</strong>${info.traffic} MB</p>
+                        `;
+                    } else {
+                        showNotification('加载用户信息失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('加载用户信息失败: ' + error, 'error');
+                });
+            
+            // 加载隧道列表
+            fetch(`/api/openfrp/proxies?token=${frpToken}&authorization=${frpAuthorization}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const proxies = data.data;
+                        const tbody = document.getElementById('frpProxyList');
+                        tbody.innerHTML = '';
+                        
+                        if (proxies.length === 0) {
+                            tbody.innerHTML = `
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <p class="text-gray-500">暂无隧道</p>
+                                    </td>
+                                </tr>
+                            `;
+                            return;
+                        }
+                        
+                        proxies.forEach(proxy => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td class="py-2">${proxy.proxyName}</td>
+                                <td class="py-2">${proxy.proxyType}</td>
+                                <td class="py-2">
+                                    <span class="px-2 py-1 text-xs rounded-full ${
+                                        proxy.online ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                    }">
+                                        ${proxy.online ? '在线' : '离线'}
+                                    </span>
+                                </td>
+                                <td class="py-2">
+                                    <button onclick="toggleProxy(${proxy.id}, ${proxy.online})" 
+                                            class="px-2 py-1 text-xs rounded ${
+                                                proxy.online ? 'bg-red-500 text-white hover:bg-red-600' : 
+                                                             'bg-green-500 text-white hover:bg-green-600'
+                                            }">
+                                        ${proxy.online ? '停止' : '启动'}
+                                    </button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                    } else {
+                        showNotification('加载隧道列表失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('加载隧道列表失败: ' + error, 'error');
+                });
+        }
+
+        function toggleProxy(proxyId, isOnline) {
+            if (isOnline) {
+                fetch('/api/openfrp/stop', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('隧道已停止', 'success');
+                        setTimeout(loadFrpInfo, 1000);
+                    } else {
+                        showNotification(data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification('停止隧道失败: ' + error, 'error');
+                });
+            } else {
+                fetch('/api/openfrp/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        token: frpToken,
+                        proxy_id: proxyId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('隧道已启动', 'success');
+                        setTimeout(loadFrpInfo, 1000);
+                    } else {
+                        if (data.message === 'no_frpc_windows') {
+                            showNotification('未找到frpc程序，请从OpenFrp官网下载并放置在frpc文件夹中', 'error');
+                            window.open('https://console.openfrp.net/download', '_blank');
+                        } else if (data.message === 'no_frpc_linux') {
+                            showNotification('未找到frpc程序，请安装frpc并确保其在系统PATH中', 'error');
+                            window.open('https://console.openfrp.net/download', '_blank');
+                        } else {
+                            showNotification(data.message, 'error');
+                        }
+                    }
+                })
+                .catch(error => {
+                    showNotification('启动隧道失败: ' + error, 'error');
+                });
+            }
+        }
+
+        // 在初始加载时添加OpenFrp信息加载
+        document.addEventListener('DOMContentLoaded', function() {
+            loadFrpInfo();
+            // 每30秒刷新一次OpenFrp信息
+            setInterval(loadFrpInfo, 30000);
+        });
     </script>
 </body>
 </html> 
